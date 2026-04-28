@@ -110,8 +110,6 @@ output/
     transcript_live.md
     minutes_draft.md
     metadata.json
-    chunks/
-    summaries/
 ```
 
 停止するには `Ctrl+C` を押します。停止時に `metadata.json` が保存されます。

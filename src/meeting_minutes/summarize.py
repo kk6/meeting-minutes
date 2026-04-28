@@ -50,25 +50,25 @@ def generate_minutes(
     config: AppConfig,
 ) -> Path:
     transcript = transcript_file.read_text(encoding="utf-8")
-    client = OllamaClient(config.summarization)
     chunks = split_text(
         transcript,
         chunk_size=config.chunking.chunk_size,
         chunk_overlap=config.chunking.chunk_overlap,
     )
 
-    if len(chunks) == 1:
-        minutes = client.generate(_prompt_for(mode, transcript))
-    else:
-        summaries = [
-            client.generate(_summary_prompt(index, len(chunks), chunk))
-            for index, chunk in enumerate(chunks, start=1)
-        ]
-        integrated_source = "\n\n".join(
-            f"## Chunk Summary {index}\n{summary}"
-            for index, summary in enumerate(summaries, start=1)
-        )
-        minutes = client.generate(_prompt_for(mode, integrated_source))
+    with OllamaClient(config.summarization) as client:
+        if len(chunks) == 1:
+            minutes = client.generate(_prompt_for(mode, transcript))
+        else:
+            summaries = [
+                client.generate(_summary_prompt(index, len(chunks), chunk))
+                for index, chunk in enumerate(chunks, start=1)
+            ]
+            integrated_source = "\n\n".join(
+                f"## Chunk Summary {index}\n{summary}"
+                for index, summary in enumerate(summaries, start=1)
+            )
+            minutes = client.generate(_prompt_for(mode, integrated_source))
 
     if output is None:
         output_name = "minutes_draft.md" if mode == "draft" else "minutes.md"

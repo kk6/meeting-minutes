@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -61,11 +60,33 @@ def load_config(path: Path | None) -> AppConfig:
     return AppConfig.model_validate(data)
 
 
-def apply_overrides(config: AppConfig, overrides: dict[str, Any]) -> AppConfig:
-    data = config.model_dump()
+def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfig:
+    allowed_sections = {"audio", "transcription", "summarization", "output", "chunking"}
+    section_updates: dict[str, dict[str, object]] = {}
     for dotted_key, value in overrides.items():
         if value is None:
             continue
+        if "." not in dotted_key:
+            raise ValueError(
+                f"Invalid override key '{dotted_key}'. Expected format is 'section.key'."
+            )
         section, key = dotted_key.split(".", 1)
-        data[section][key] = value
-    return AppConfig.model_validate(data)
+        if not section or not key:
+            raise ValueError(
+                f"Invalid override key '{dotted_key}'. Expected format is 'section.key'."
+            )
+        if section not in allowed_sections:
+            supported_sections = ", ".join(sorted(allowed_sections))
+            raise ValueError(
+                f"Unsupported override section '{section}' in '{dotted_key}'. "
+                f"Supported sections are: {supported_sections}"
+            )
+        section_updates.setdefault(section, {})[key] = value
+
+    updated = config
+    for section, updates in section_updates.items():
+        current = getattr(updated, section)
+        updated = updated.model_copy(update={section: current.model_copy(update=updates)})
+
+    # model_copy(update=...) skips validation, so revalidate before returning.
+    return AppConfig.model_validate(updated.model_dump())

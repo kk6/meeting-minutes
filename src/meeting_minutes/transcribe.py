@@ -1,14 +1,7 @@
-from dataclasses import dataclass
-
 import numpy as np
 
 from meeting_minutes.config import TranscriptionConfig
 from meeting_minutes.errors import TranscriptionError
-
-
-@dataclass(frozen=True)
-class TranscriptSegment:
-    text: str
 
 
 class WhisperTranscriber:
@@ -21,7 +14,7 @@ class WhisperTranscriber:
                 device=config.device,
                 compute_type=config.compute_type,
             )
-        except Exception as exc:
+        except (ImportError, OSError, RuntimeError, ValueError) as exc:
             raise TranscriptionError(f"Whisperモデルをロードできませんでした: {exc}") from exc
         self._language = config.language
 
@@ -34,6 +27,6 @@ class WhisperTranscriber:
                 beam_size=1,
             )
             texts = [segment.text.strip() for segment in segments if segment.text.strip()]
-        except Exception as exc:
+        except (RuntimeError, ValueError) as exc:
             raise TranscriptionError(f"文字起こしに失敗しました: {exc}") from exc
         return " ".join(texts).strip()

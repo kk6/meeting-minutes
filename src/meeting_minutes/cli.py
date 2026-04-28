@@ -14,10 +14,6 @@ app = typer.Typer(no_args_is_help=True)
 console = Console()
 
 
-def _config_option(config_path: Path | None) -> Path | None:
-    return config_path
-
-
 @app.command()
 def devices() -> None:
     """入力音声デバイスを一覧表示します。"""
@@ -44,7 +40,7 @@ def check(
     config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
 ) -> None:
     """実行環境を確認します。"""
-    app_config = load_config(_config_option(config))
+    app_config = load_config(config)
     table = Table(title="Environment check")
     table.add_column("Item")
     table.add_column("Status")

@@ -1,9 +1,13 @@
+import logging
 import shutil
 
 import httpx
+import sounddevice as sd
 
 from meeting_minutes.config import AppConfig
 from meeting_minutes.devices import list_input_devices
+
+logger = logging.getLogger(__name__)
 
 
 def run_checks(config: AppConfig) -> list[tuple[str, bool, str]]:
@@ -19,7 +23,8 @@ def run_checks(config: AppConfig) -> list[tuple[str, bool, str]]:
         if blackhole:
             message += ", BlackHole detected"
         results.append(("sounddevice inputs", True, message))
-    except Exception as exc:  # pragma: no cover - depends on host audio stack
+    except (OSError, sd.PortAudioError) as exc:  # pragma: no cover - depends on host audio stack
+        logger.exception("Audio input check failed")
         results.append(("sounddevice inputs", False, str(exc)))
 
     base_url = config.summarization.ollama_base_url.rstrip("/")
@@ -32,7 +37,8 @@ def run_checks(config: AppConfig) -> list[tuple[str, bool, str]]:
         found = any(name == wanted or name.startswith(f"{wanted}:") for name in model_names)
         results.append(("Ollama API", True, f"{base_url} reachable"))
         results.append((f"Ollama model {wanted}", found, "available" if found else "not found"))
-    except Exception as exc:
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.exception("Ollama API check failed")
         results.append(("Ollama API", False, str(exc)))
         results.append((f"Ollama model {config.summarization.ollama_model}", False, "not checked"))
 
@@ -40,7 +46,8 @@ def run_checks(config: AppConfig) -> list[tuple[str, bool, str]]:
         from faster_whisper import WhisperModel  # noqa: F401
 
         results.append(("faster-whisper", True, "import ok"))
-    except Exception as exc:  # pragma: no cover - depends on optional import
+    except ImportError as exc:  # pragma: no cover - depends on optional import
+        logger.exception("faster-whisper import check failed")
         results.append(("faster-whisper", False, str(exc)))
 
     return results

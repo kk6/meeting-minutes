@@ -8,9 +8,15 @@ from meeting_minutes.devices import InputDevice
 def create_session_dir(base_dir: Path, started_at: datetime) -> Path:
     session = base_dir / f"{started_at:%Y-%m-%d_%H%M%S}_live_meeting"
     session.mkdir(parents=True, exist_ok=True)
-    (session / "chunks").mkdir(exist_ok=True)
-    (session / "summaries").mkdir(exist_ok=True)
     return session
+
+
+def format_elapsed(elapsed_seconds: int) -> str:
+    return (
+        f"{elapsed_seconds // 3600:02d}:"
+        f"{elapsed_seconds % 3600 // 60:02d}:"
+        f"{elapsed_seconds % 60:02d}"
+    )
 
 
 def init_transcript(
@@ -42,9 +48,5 @@ def init_transcript(
 
 def append_transcript(path: Path, elapsed_seconds: int, text: str) -> None:
     with path.open("a", encoding="utf-8") as file:
-        stamp = (
-            f"{elapsed_seconds // 3600:02}:"
-            f"{elapsed_seconds % 3600 // 60:02}:"
-            f"{elapsed_seconds % 60:02}"
-        )
+        stamp = format_elapsed(elapsed_seconds)
         file.write(f"[{stamp}] {text}\n")
