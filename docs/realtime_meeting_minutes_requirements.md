@@ -475,7 +475,7 @@ TOML形式をサポートする。
 ```toml
 [audio]
 device = "BlackHole 2ch"
-device_index = null
+# device_index = 0
 sample_rate = 16000
 channels = 1
 chunk_seconds = 8

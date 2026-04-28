@@ -26,6 +26,12 @@ ollama_model = "gemma4:latest"
     assert config.summarization.ollama_model == "gemma4:latest"
 
 
+def test_example_config_loads() -> None:
+    config = load_config(Path("config.example.toml"))
+
+    assert config.audio.device == "BlackHole 2ch"
+
+
 def test_apply_overrides_ignores_none() -> None:
     config = apply_overrides(load_config(None), {"audio.device": "Mic", "audio.sample_rate": None})
 
