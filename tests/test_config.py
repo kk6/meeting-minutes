@@ -1,18 +1,8 @@
-import os
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
 from meeting_minutes.config import apply_overrides, load_config
-
-
-@pytest.fixture(autouse=True)
-def clear_meeting_minutes_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    for key in os.environ:
-        if key.startswith("MEETING_MINUTES_"):
-            monkeypatch.delenv(key, raising=False)
-    yield
 
 
 def test_load_config_from_toml(tmp_path: Path) -> None:
