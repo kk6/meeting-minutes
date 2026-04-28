@@ -7,6 +7,7 @@ from meeting_minutes.audio_stream import audio_chunks
 from meeting_minutes.config import AppConfig
 from meeting_minutes.dedupe import TranscriptDedupe
 from meeting_minutes.devices import resolve_input_device
+from meeting_minutes.errors import MeetingMinutesError
 from meeting_minutes.metadata import build_metadata, write_metadata
 from meeting_minutes.output import (
     append_transcript,
@@ -69,7 +70,7 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
                         session_dir / "minutes_draft.md",
                         config,
                     )
-                except Exception as exc:  # keep realtime transcription alive
+                except (MeetingMinutesError, OSError, UnicodeError) as exc:
                     logger.exception("Draft generation failed")
                     errors.append(f"draft generation failed: {exc}")
                 next_draft_at += interval_seconds

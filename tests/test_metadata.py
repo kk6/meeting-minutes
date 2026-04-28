@@ -2,6 +2,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from meeting_minutes.config import load_config
 from meeting_minutes.devices import InputDevice
 from meeting_minutes.metadata import build_metadata, write_metadata
@@ -33,4 +35,4 @@ def test_write_metadata_serializes_datetime_and_path(tmp_path: Path) -> None:
     assert data["started_at"] == "2026-04-28T10:00:00"
     assert data["ended_at"] == "2026-04-28T10:00:08"
     assert data["transcript_path"] == str(transcript_path)
-    assert data["processing_seconds"] == 8.530865
+    assert data["processing_seconds"] == pytest.approx(8.530865)
