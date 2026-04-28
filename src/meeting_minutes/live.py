@@ -76,6 +76,7 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
     except KeyboardInterrupt:
         console.print("\n[yellow]Stopping...[/yellow]")
     except Exception as exc:
+        logger.exception("Live session aborted")
         errors.append(str(exc))
         raise
     finally:

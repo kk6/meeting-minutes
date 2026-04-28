@@ -61,32 +61,24 @@ def load_config(path: Path | None) -> AppConfig:
 
 
 def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfig:
+    allowed_sections = {"audio", "transcription", "summarization", "output", "chunking"}
     section_updates: dict[str, dict[str, object]] = {}
     for dotted_key, value in overrides.items():
         if value is None:
             continue
         section, key = dotted_key.split(".", 1)
+        if section not in allowed_sections:
+            supported_sections = ", ".join(sorted(allowed_sections))
+            raise ValueError(
+                f"Unsupported override section '{section}' in '{dotted_key}'. "
+                f"Supported sections are: {supported_sections}"
+            )
         section_updates.setdefault(section, {})[key] = value
 
     updated = config
-    if audio_updates := section_updates.get("audio"):
-        updated = updated.model_copy(
-            update={"audio": updated.audio.model_copy(update=audio_updates)}
-        )
-    if transcription_updates := section_updates.get("transcription"):
-        updated = updated.model_copy(
-            update={"transcription": updated.transcription.model_copy(update=transcription_updates)}
-        )
-    if summarization_updates := section_updates.get("summarization"):
-        updated = updated.model_copy(
-            update={"summarization": updated.summarization.model_copy(update=summarization_updates)}
-        )
-    if output_updates := section_updates.get("output"):
-        updated = updated.model_copy(
-            update={"output": updated.output.model_copy(update=output_updates)}
-        )
-    if chunking_updates := section_updates.get("chunking"):
-        updated = updated.model_copy(
-            update={"chunking": updated.chunking.model_copy(update=chunking_updates)}
-        )
+    for section, updates in section_updates.items():
+        current = getattr(updated, section)
+        updated = updated.model_copy(update={section: current.model_copy(update=updates)})
+
+    # model_copy(update=...) skips validation, so revalidate before returning.
     return AppConfig.model_validate(updated.model_dump())

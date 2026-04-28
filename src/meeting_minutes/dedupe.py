@@ -4,6 +4,8 @@ from difflib import SequenceMatcher
 
 class TranscriptDedupe:
     def __init__(self, similarity_threshold: float = 0.92, max_seen: int = 300) -> None:
+        if max_seen < 1:
+            raise ValueError("max_seen must be greater than or equal to 1")
         self._seen: set[str] = set()
         self._history: deque[str] = deque()
         self._last_text = ""

@@ -517,8 +517,6 @@ output/
     minutes_draft.md
     minutes.md
     metadata.json
-    chunks/
-    summaries/
 ```
 
 ## 13. メタデータ

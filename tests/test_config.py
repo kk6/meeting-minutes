@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from meeting_minutes.config import apply_overrides, load_config
 
 
@@ -48,3 +50,8 @@ def test_apply_overrides_updates_multiple_sections() -> None:
     assert config.summarization.ollama_model == "gemma4:e4b"
     assert not config.output.save_transcript
     assert config.chunking.chunk_size == 1000
+
+
+def test_apply_overrides_raises_for_unknown_section() -> None:
+    with pytest.raises(ValueError, match="Unsupported override section 'unknown'"):
+        apply_overrides(load_config(None), {"unknown.value": "ignored"})

@@ -1,3 +1,5 @@
+from types import TracebackType
+
 import httpx
 
 from meeting_minutes.config import SummarizationConfig
@@ -8,21 +10,29 @@ class OllamaClient:
     def __init__(self, config: SummarizationConfig) -> None:
         self._config = config
         self._generate_url = f"{config.ollama_base_url.rstrip('/')}/api/generate"
-        self._client = httpx.Client(timeout=config.timeout_seconds)
+        self._client: httpx.Client | None = None
 
     def __enter__(self) -> "OllamaClient":
+        self._client = httpx.Client(timeout=self._config.timeout_seconds)
         return self
 
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        traceback: object,
+        traceback: TracebackType | None,
     ) -> None:
         self.close()
 
     def close(self) -> None:
-        self._client.close()
+        if self._client is not None:
+            self._client.close()
+            self._client = None
+
+    def _get_client(self) -> httpx.Client:
+        if self._client is None:
+            self._client = httpx.Client(timeout=self._config.timeout_seconds)
+        return self._client
 
     def generate(self, prompt: str) -> str:
         payload = {
@@ -35,7 +45,7 @@ class OllamaClient:
             },
         }
         try:
-            response = self._client.post(
+            response = self._get_client().post(
                 self._generate_url,
                 json=payload,
             )
