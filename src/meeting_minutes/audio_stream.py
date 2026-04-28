@@ -20,7 +20,7 @@ def audio_chunks(
 ) -> Iterator[np.ndarray]:
     frames_per_chunk = sample_rate * chunk_seconds
     block_frames = max(sample_rate // 2, 1)
-    queue: Queue[np.ndarray] = Queue(maxsize=240)  # 120 seconds at the default 0.5s block size.
+    queue: Queue[np.ndarray] = Queue(maxsize=240)  # 120 seconds at the current ~0.5s block size.
     dropped_blocks = 0
 
     def callback(

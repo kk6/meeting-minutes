@@ -34,8 +34,8 @@ def build_metadata(
 ) -> SessionMetadata:
     processing_seconds = (ended_at - started_at).total_seconds() if ended_at else None
     return SessionMetadata(
-        started_at=started_at,
-        ended_at=ended_at,
+        started_at=started_at.replace(microsecond=0),
+        ended_at=ended_at.replace(microsecond=0) if ended_at else None,
         input_device_name=input_device.name,
         input_device_index=input_device.index,
         sample_rate=config.audio.sample_rate,

@@ -13,7 +13,7 @@ class OllamaClient:
         self._client: httpx.Client | None = None
 
     def __enter__(self) -> "OllamaClient":
-        self._client = httpx.Client(timeout=self._config.timeout_seconds)
+        self._get_client()
         return self
 
     def __exit__(

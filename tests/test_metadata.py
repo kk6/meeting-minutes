@@ -8,8 +8,8 @@ from meeting_minutes.metadata import build_metadata, write_metadata
 
 
 def test_write_metadata_serializes_datetime_and_path(tmp_path: Path) -> None:
-    started_at = datetime(2026, 4, 28, 10, 0, 0)
-    ended_at = datetime(2026, 4, 28, 10, 0, 8)
+    started_at = datetime(2026, 4, 28, 10, 0, 0, 123456)
+    ended_at = datetime(2026, 4, 28, 10, 0, 8, 654321)
     transcript_path = tmp_path / "transcript_live.md"
     metadata = build_metadata(
         started_at=started_at,
@@ -33,4 +33,4 @@ def test_write_metadata_serializes_datetime_and_path(tmp_path: Path) -> None:
     assert data["started_at"] == "2026-04-28T10:00:00"
     assert data["ended_at"] == "2026-04-28T10:00:08"
     assert data["transcript_path"] == str(transcript_path)
-    assert data["processing_seconds"] == 8.0
+    assert data["processing_seconds"] == 8.530865
