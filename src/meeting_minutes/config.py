@@ -66,7 +66,15 @@ def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfi
     for dotted_key, value in overrides.items():
         if value is None:
             continue
+        if "." not in dotted_key:
+            raise ValueError(
+                f"Invalid override key '{dotted_key}'. Expected format is 'section.key'."
+            )
         section, key = dotted_key.split(".", 1)
+        if not section or not key:
+            raise ValueError(
+                f"Invalid override key '{dotted_key}'. Expected format is 'section.key'."
+            )
         if section not in allowed_sections:
             supported_sections = ", ".join(sorted(allowed_sections))
             raise ValueError(
