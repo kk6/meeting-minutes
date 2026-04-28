@@ -29,3 +29,22 @@ def test_apply_overrides_ignores_none() -> None:
 
     assert config.audio.device == "Mic"
     assert config.audio.sample_rate == 16_000
+
+
+def test_apply_overrides_updates_multiple_sections() -> None:
+    config = apply_overrides(
+        load_config(None),
+        {
+            "audio.device": "Mic",
+            "transcription.language": "en",
+            "summarization.ollama_model": "gemma4:e4b",
+            "output.save_transcript": False,
+            "chunking.chunk_size": 1000,
+        },
+    )
+
+    assert config.audio.device == "Mic"
+    assert config.transcription.language == "en"
+    assert config.summarization.ollama_model == "gemma4:e4b"
+    assert not config.output.save_transcript
+    assert config.chunking.chunk_size == 1000

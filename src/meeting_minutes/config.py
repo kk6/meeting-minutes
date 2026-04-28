@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -61,11 +60,33 @@ def load_config(path: Path | None) -> AppConfig:
     return AppConfig.model_validate(data)
 
 
-def apply_overrides(config: AppConfig, overrides: dict[str, Any]) -> AppConfig:
-    data = config.model_dump()
+def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfig:
+    section_updates: dict[str, dict[str, object]] = {}
     for dotted_key, value in overrides.items():
         if value is None:
             continue
         section, key = dotted_key.split(".", 1)
-        data[section][key] = value
-    return AppConfig.model_validate(data)
+        section_updates.setdefault(section, {})[key] = value
+
+    updated = config
+    if audio_updates := section_updates.get("audio"):
+        updated = updated.model_copy(
+            update={"audio": updated.audio.model_copy(update=audio_updates)}
+        )
+    if transcription_updates := section_updates.get("transcription"):
+        updated = updated.model_copy(
+            update={"transcription": updated.transcription.model_copy(update=transcription_updates)}
+        )
+    if summarization_updates := section_updates.get("summarization"):
+        updated = updated.model_copy(
+            update={"summarization": updated.summarization.model_copy(update=summarization_updates)}
+        )
+    if output_updates := section_updates.get("output"):
+        updated = updated.model_copy(
+            update={"output": updated.output.model_copy(update=output_updates)}
+        )
+    if chunking_updates := section_updates.get("chunking"):
+        updated = updated.model_copy(
+            update={"chunking": updated.chunking.model_copy(update=chunking_updates)}
+        )
+    return AppConfig.model_validate(updated.model_dump())

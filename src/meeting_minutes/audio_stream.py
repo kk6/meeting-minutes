@@ -4,8 +4,10 @@ from queue import Full, Queue
 import numpy as np
 import sounddevice as sd
 
+from meeting_minutes.errors import MeetingMinutesError
 
-class AudioOverflowError(RuntimeError):
+
+class AudioOverflowError(MeetingMinutesError):
     """Raised when transcription is too slow and the in-memory audio queue fills up."""
 
 
@@ -18,7 +20,7 @@ def audio_chunks(
 ) -> Iterator[np.ndarray]:
     frames_per_chunk = sample_rate * chunk_seconds
     block_frames = max(sample_rate // 2, 1)
-    queue: Queue[np.ndarray] = Queue(maxsize=240)
+    queue: Queue[np.ndarray] = Queue(maxsize=240)  # 120 seconds at the default 0.5s block size.
     dropped_blocks = 0
 
     def callback(
@@ -43,8 +45,7 @@ def audio_chunks(
         dtype="float32",
         blocksize=block_frames,
         callback=callback,
-    ) as stream:
-        del stream
+    ):
         pending = np.empty(0, dtype=np.float32)
         while True:
             if dropped_blocks:

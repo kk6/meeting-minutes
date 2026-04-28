@@ -8,6 +8,21 @@ class OllamaClient:
     def __init__(self, config: SummarizationConfig) -> None:
         self._config = config
         self._generate_url = f"{config.ollama_base_url.rstrip('/')}/api/generate"
+        self._client = httpx.Client(timeout=config.timeout_seconds)
+
+    def __enter__(self) -> "OllamaClient":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: object,
+    ) -> None:
+        self.close()
+
+    def close(self) -> None:
+        self._client.close()
 
     def generate(self, prompt: str) -> str:
         payload = {
@@ -20,10 +35,9 @@ class OllamaClient:
             },
         }
         try:
-            response = httpx.post(
+            response = self._client.post(
                 self._generate_url,
                 json=payload,
-                timeout=self._config.timeout_seconds,
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
