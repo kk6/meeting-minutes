@@ -27,6 +27,8 @@ uv run meeting-minutes finalize ./output/current/transcript_live.md
 
 設定例は [config.example.toml](/Users/kk6/CascadeProjects/meeting-minutes/config.example.toml) を参照してください。
 
+詳しいCLI説明は [docs/cli.md](/Users/kk6/CascadeProjects/meeting-minutes/docs/cli.md) を参照してください。
+
 ## Notes
 
 - 音声と文字起こし内容はクラウドAPIへ送信しません。
