@@ -30,6 +30,7 @@ class SummarizationConfig(BaseModel):
 class OutputConfig(BaseModel):
     base_dir: Path = Path("output")
     save_transcript: bool = True
+    save_audio: bool = True
 
 
 class ChunkingConfig(BaseModel):

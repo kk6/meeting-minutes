@@ -33,4 +33,5 @@ uv run meeting-minutes finalize ./output/current/transcript_live.md
 
 - 音声と文字起こし内容はクラウドAPIへ送信しません。
 - 議事録生成はローカルOllama API (`http://localhost:11434`) を使います。
+- `live` はデフォルトでセッションディレクトリに `audio_live.wav` を保存します。保存は `--no-save-audio` または `output.save_audio=false` で無効化できます。
 - `live` はCtrl+Cで停止し、`metadata.json` を保存します。

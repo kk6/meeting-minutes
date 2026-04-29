@@ -13,6 +13,7 @@ def test_write_metadata_serializes_datetime_and_path(tmp_path: Path) -> None:
     started_at = datetime(2026, 4, 28, 10, 0, 0, 123456)
     ended_at = datetime(2026, 4, 28, 10, 0, 8, 654321)
     transcript_path = tmp_path / "transcript_live.md"
+    audio_path = tmp_path / "audio_live.wav"
     metadata = build_metadata(
         started_at=started_at,
         ended_at=ended_at,
@@ -25,6 +26,7 @@ def test_write_metadata_serializes_datetime_and_path(tmp_path: Path) -> None:
         ),
         config=load_config(None),
         transcript_path=transcript_path,
+        audio_path=audio_path,
         errors=[],
     )
     output = tmp_path / "metadata.json"
@@ -35,4 +37,5 @@ def test_write_metadata_serializes_datetime_and_path(tmp_path: Path) -> None:
     assert data["started_at"] == "2026-04-28T10:00:00"
     assert data["ended_at"] == "2026-04-28T10:00:08"
     assert data["transcript_path"] == str(transcript_path)
+    assert data["audio_path"] == str(audio_path)
     assert data["processing_seconds"] == pytest.approx(8.530865)

@@ -100,6 +100,7 @@ uv run meeting-minutes live --device-index 1
 | `--ollama-model` | `gemma4` | 自動ドラフト生成で使うOllamaモデル |
 | `--config` | なし | TOML設定ファイル |
 | `--no-save` | `false` | transcriptを保存しない |
+| `--no-save-audio` | `false` | 録音WAVを保存しない |
 | `--draft-interval-minutes` | `0` | 指定分ごとにドラフト生成。`0`なら無効 |
 
 出力先の例:
@@ -108,9 +109,12 @@ uv run meeting-minutes live --device-index 1
 output/
   2026-04-28_193822_live_meeting/
     transcript_live.md
+    audio_live.wav
     minutes_draft.md
     metadata.json
 ```
+
+`transcript_live.md` の本文は、後から音声と照合しやすいように `[開始 - 終了] text` 形式で保存されます。
 
 停止するには `Ctrl+C` を押します。停止時に `metadata.json` が保存されます。
 
@@ -208,6 +212,7 @@ timeout_seconds = 600
 [output]
 base_dir = "output"
 save_transcript = true
+save_audio = true
 
 [chunking]
 chunk_size = 6000
