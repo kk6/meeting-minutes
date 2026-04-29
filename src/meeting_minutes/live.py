@@ -1,8 +1,11 @@
 import logging
 import wave
+from dataclasses import dataclass
 from datetime import datetime
 from math import ceil, floor
+from pathlib import Path
 
+import numpy as np
 from rich.console import Console
 
 from meeting_minutes.audio_output import WavAudioWriter
@@ -44,13 +47,48 @@ def _close_audio_writer(audio_writer: WavAudioWriter, errors: list[str]) -> None
         errors.append(f"audio recording close failed: {exc}")
 
 
+@dataclass
+class AudioRecording:
+    path: Path | None
+    writer: WavAudioWriter | None = None
+
+    @classmethod
+    def open(cls, path: Path | None, *, sample_rate: int, errors: list[str]) -> "AudioRecording":
+        if path is None:
+            return cls(path=None)
+        try:
+            writer = WavAudioWriter(path, sample_rate=sample_rate)
+        except AUDIO_RECORDING_ERRORS as exc:
+            logger.exception("Audio recording disabled")
+            errors.append(f"audio recording disabled: {exc}")
+            return cls(path=None)
+        return cls(path=path, writer=writer)
+
+    def write(self, chunk: np.ndarray, errors: list[str]) -> None:
+        if self.writer is None:
+            return
+        try:
+            self.writer.write(chunk)
+        except AUDIO_RECORDING_ERRORS as exc:
+            logger.exception("Audio recording disabled")
+            errors.append(f"audio recording disabled: {exc}")
+            _close_audio_writer(self.writer, errors)
+            self.writer = None
+            self.path = None
+
+    def close(self, errors: list[str]) -> None:
+        if self.writer is not None:
+            _close_audio_writer(self.writer, errors)
+            self.writer = None
+
+
 def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
     started_at = datetime.now()
     input_device = resolve_input_device(config.audio.device, config.audio.device_index)
     session_dir = create_session_dir(config.output.base_dir, started_at)
     transcript_path = session_dir / "transcript_live.md" if config.output.save_transcript else None
     audio_path = session_dir / "audio_live.wav" if config.output.save_audio else None
-    audio_writer: WavAudioWriter | None = None
+    audio_recording = AudioRecording(path=audio_path)
     errors: list[str] = []
 
     if transcript_path is not None:
@@ -74,13 +112,11 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
     next_draft_at = interval_seconds if interval_seconds > 0 else None
 
     try:
-        if audio_path is not None:
-            try:
-                audio_writer = WavAudioWriter(audio_path, sample_rate=config.audio.sample_rate)
-            except AUDIO_RECORDING_ERRORS as exc:
-                logger.exception("Audio recording disabled")
-                errors.append(f"audio recording disabled: {exc}")
-                audio_path = None
+        audio_recording = AudioRecording.open(
+            audio_path,
+            sample_rate=config.audio.sample_rate,
+            errors=errors,
+        )
 
         for chunk in audio_chunks(
             device_index=input_device.index,
@@ -90,15 +126,7 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
         ):
             chunk_start_seconds = elapsed_seconds
             elapsed_seconds += config.audio.chunk_seconds
-            if audio_writer is not None:
-                try:
-                    audio_writer.write(chunk)
-                except AUDIO_RECORDING_ERRORS as exc:
-                    logger.exception("Audio recording disabled")
-                    errors.append(f"audio recording disabled: {exc}")
-                    _close_audio_writer(audio_writer, errors)
-                    audio_writer = None
-                    audio_path = None
+            audio_recording.write(chunk, errors)
             segments = transcriber.transcribe_segments(chunk)
             text = " ".join(segment.text for segment in segments).strip()
             if not dedupe.should_keep(text):
@@ -141,8 +169,7 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
         errors.append(str(exc))
         raise
     finally:
-        if audio_writer is not None:
-            _close_audio_writer(audio_writer, errors)
+        audio_recording.close(errors)
         ended_at = datetime.now()
         metadata = build_metadata(
             started_at=started_at,
@@ -150,7 +177,7 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
             input_device=input_device,
             config=config,
             transcript_path=transcript_path,
-            audio_path=audio_path,
+            audio_path=audio_recording.path,
             errors=errors,
         )
         write_metadata(session_dir / "metadata.json", metadata)

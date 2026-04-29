@@ -49,6 +49,34 @@ Part: {part_number}/{total_parts}
 """
 
 
+def _generate_from_chunks(
+    client: OllamaClient,
+    mode: MinutesMode,
+    chunks: list[str],
+    vocabulary_section: str,
+) -> str:
+    if len(chunks) == 1:
+        return client.generate(_prompt_for(mode, chunks[0], vocabulary_section))
+
+    summaries = [
+        client.generate(_summary_prompt(index, len(chunks), chunk, vocabulary_section))
+        for index, chunk in enumerate(chunks, start=1)
+    ]
+    integrated_source = _format_chunk_summaries(summaries)
+    return client.generate(_prompt_for(mode, integrated_source, vocabulary_section))
+
+
+def _format_chunk_summaries(summaries: list[str]) -> str:
+    return "\n\n".join(
+        f"## Chunk Summary {index}\n{summary}" for index, summary in enumerate(summaries, start=1)
+    )
+
+
+def _default_output_path(transcript_file: Path, mode: MinutesMode) -> Path:
+    output_name = "minutes_draft.md" if mode == "draft" else "minutes.md"
+    return transcript_file.parent / output_name
+
+
 def generate_minutes(
     transcript_file: Path,
     mode: MinutesMode,
@@ -67,22 +95,10 @@ def generate_minutes(
     )
 
     with OllamaClient(config.summarization) as client:
-        if len(chunks) == 1:
-            minutes = client.generate(_prompt_for(mode, transcript, vocabulary_section))
-        else:
-            summaries = [
-                client.generate(_summary_prompt(index, len(chunks), chunk, vocabulary_section))
-                for index, chunk in enumerate(chunks, start=1)
-            ]
-            integrated_source = "\n\n".join(
-                f"## Chunk Summary {index}\n{summary}"
-                for index, summary in enumerate(summaries, start=1)
-            )
-            minutes = client.generate(_prompt_for(mode, integrated_source, vocabulary_section))
+        minutes = _generate_from_chunks(client, mode, chunks, vocabulary_section)
 
     if output is None:
-        output_name = "minutes_draft.md" if mode == "draft" else "minutes.md"
-        output = transcript_file.parent / output_name
+        output = _default_output_path(transcript_file, mode)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(minutes.rstrip() + "\n", encoding="utf-8")
     return output
