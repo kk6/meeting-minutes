@@ -48,14 +48,22 @@ def test_build_initial_prompt_combines_participants_and_glossary() -> None:
     assert prompt == "参加者: 田中、鈴木 用語: ABC、XYZ"
 
 
-def test_build_initial_prompt_truncates_when_over_budget() -> None:
+def test_build_initial_prompt_truncates_at_separator_boundary() -> None:
+    # "参加者: 田中、鈴木 用語: ABC、XYZ" の先頭13文字 "参加者: 田中、鈴" で切るが
+    # 区切り文字「、」の手前 "参加者: 田中" で止まることを確認する。
     vocab = Vocabulary(participants=["田中", "鈴木"], glossary=["ABC", "XYZ"])
 
-    prompt = build_initial_prompt(vocab, max_chars=10)
+    prompt = build_initial_prompt(vocab, max_chars=9)
 
-    assert prompt is not None
-    assert len(prompt) <= 10
-    assert prompt.startswith("参加者: 田中")
+    assert prompt == "参加者: 田中"
+
+
+def test_build_initial_prompt_returns_empty_when_no_separator_in_budget() -> None:
+    vocab = Vocabulary(participants=["田中"])
+
+    prompt = build_initial_prompt(vocab, max_chars=3)
+
+    assert prompt == ""
 
 
 def test_build_initial_prompt_returns_none_when_max_chars_zero() -> None:

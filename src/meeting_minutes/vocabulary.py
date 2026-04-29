@@ -59,7 +59,12 @@ def build_initial_prompt(vocab: Vocabulary, *, max_chars: int) -> str | None:
     if len(prompt) <= max_chars:
         return prompt
     # Whisper のヒントは前方ほど強く効くため、末尾を落とす。
-    return prompt[:max_chars].rstrip("、 ")
+    # 単語の途中で切らないよう、区切り文字（読点・空白）の手前で止める。
+    candidate = prompt[:max_chars]
+    for i in range(len(candidate) - 1, -1, -1):
+        if candidate[i] in ("、", " "):
+            return candidate[:i]
+    return ""
 
 
 def build_summary_section(vocab: Vocabulary) -> str:
