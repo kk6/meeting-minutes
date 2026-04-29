@@ -34,3 +34,5 @@ chunk_overlap = 500
 # participants_file = "vocab/participants.txt"
 # Whisper の initial_prompt 上限（約224 token）に収めるための文字数上限。0 でヒント無効。
 max_prompt_chars = 200
+# 要約プロンプトへの語彙注入の文字数上限。上限を超える語彙は末尾から項目単位で切り落とす。0 で無効。
+max_summary_chars = 1000

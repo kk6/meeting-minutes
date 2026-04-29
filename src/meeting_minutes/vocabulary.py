@@ -67,21 +67,41 @@ def build_initial_prompt(vocab: Vocabulary, *, max_chars: int) -> str | None:
     return ""
 
 
-def build_summary_section(vocab: Vocabulary) -> str:
-    """要約プロンプトに差し込む参加者・用語セクションを生成する。空なら空文字列を返す。"""
-    if vocab.is_empty:
+def build_summary_section(vocab: Vocabulary, *, max_chars: int = 0) -> str:
+    """要約プロンプトに差し込む参加者・用語セクションを生成する。
+
+    max_chars > 0 の場合、超過しないよう項目単位で末尾から切り落とす。
+    空または上限 0 なら空文字列を返す。
+    """
+    if vocab.is_empty or max_chars == 0:
         return ""
 
-    parts: list[str] = [
-        "以下は今回の会議で想定される参加者・用語の一覧です。",
-        "表記の正規化に活用してください。",
+    header = (
+        "以下は今回の会議で想定される参加者・用語の一覧です。\n表記の正規化に活用してください。"
+    )
+    all_terms: list[tuple[str, str]] = [("参加者", name) for name in vocab.participants] + [
+        ("用語", term) for term in vocab.glossary
     ]
-    if vocab.participants:
-        parts.append("")
-        parts.append("## 参加者")
-        parts.extend(f"- {name}" for name in vocab.participants)
-    if vocab.glossary:
-        parts.append("")
-        parts.append("## 用語")
-        parts.extend(f"- {term}" for term in vocab.glossary)
+
+    # 上限に収まる範囲で項目を前から詰める。
+    included: list[tuple[str, str]] = []
+    for section, term in all_terms:
+        candidate = _build_section_text(header, included + [(section, term)])
+        if len(candidate) > max_chars:
+            break
+        included.append((section, term))
+
+    if not included:
+        return ""
+    return _build_section_text(header, included)
+
+
+def _build_section_text(header: str, terms: list[tuple[str, str]]) -> str:
+    parts = [header]
+    current_section = ""
+    for section, term in terms:
+        if section != current_section:
+            parts.append(f"\n## {section}")
+            current_section = section
+        parts.append(f"- {term}")
     return "\n".join(parts) + "\n"

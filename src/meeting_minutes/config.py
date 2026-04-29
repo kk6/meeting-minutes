@@ -44,6 +44,9 @@ class VocabularyConfig(BaseModel):
     # Whisper の initial_prompt は約 224 token が上限。日本語では 1 文字 ≒ 1〜2 token のため、
     # 200 文字を安全側のデフォルトとする。
     max_prompt_chars: int = Field(default=200, ge=0)
+    # 要約プロンプトへの語彙注入上限。Ollama の num_ctx を圧迫しないよう項目単位で切り落とす。
+    # 0 で語彙セクションを無効化する。
+    max_summary_chars: int = Field(default=1000, ge=0)
 
 
 class AppConfig(BaseSettings):

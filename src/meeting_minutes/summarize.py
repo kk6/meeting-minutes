@@ -61,7 +61,10 @@ def generate_minutes(
         chunk_size=config.chunking.chunk_size,
         chunk_overlap=config.chunking.chunk_overlap,
     )
-    vocabulary_section = build_summary_section(load_vocabulary(config.vocabulary))
+    vocabulary_section = build_summary_section(
+        load_vocabulary(config.vocabulary),
+        max_chars=config.vocabulary.max_summary_chars,
+    )
 
     with OllamaClient(config.summarization) as client:
         if len(chunks) == 1:

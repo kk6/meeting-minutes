@@ -76,10 +76,14 @@ def test_build_summary_section_returns_empty_for_empty_vocab() -> None:
     assert build_summary_section(Vocabulary()) == ""
 
 
+def test_build_summary_section_returns_empty_when_max_chars_zero() -> None:
+    assert build_summary_section(Vocabulary(participants=["田中"]), max_chars=0) == ""
+
+
 def test_build_summary_section_includes_participants_and_glossary() -> None:
     vocab = Vocabulary(participants=["田中", "鈴木"], glossary=["ABC"])
 
-    section = build_summary_section(vocab)
+    section = build_summary_section(vocab, max_chars=1000)
 
     assert "## 参加者" in section
     assert "- 田中" in section
@@ -87,3 +91,20 @@ def test_build_summary_section_includes_participants_and_glossary() -> None:
     assert "## 用語" in section
     assert "- ABC" in section
     assert section.endswith("\n")
+
+
+def test_build_summary_section_truncates_at_term_boundary() -> None:
+    vocab = Vocabulary(participants=["田中", "鈴木"], glossary=["ABC", "XYZ"])
+
+    # 田中は入るが鈴木以降は入らないよう上限を設定（田中まで57文字、鈴木追加で62文字）
+    section = build_summary_section(vocab, max_chars=60)
+
+    assert "- 田中" in section
+    assert "- 鈴木" not in section
+    assert len(section) <= 60
+
+
+def test_build_summary_section_returns_empty_when_budget_too_small() -> None:
+    vocab = Vocabulary(participants=["田中"])
+
+    assert build_summary_section(vocab, max_chars=5) == ""
