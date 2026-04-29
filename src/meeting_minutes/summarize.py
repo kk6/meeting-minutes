@@ -4,6 +4,7 @@ from typing import Literal
 from meeting_minutes.config import AppConfig
 from meeting_minutes.ollama_client import OllamaClient
 from meeting_minutes.prompts import DRAFT_PROMPT, FINAL_PROMPT
+from meeting_minutes.vocabulary import build_summary_section, load_vocabulary
 
 MinutesMode = Literal["draft", "final"]
 
@@ -22,12 +23,17 @@ def split_text(text: str, *, chunk_size: int, chunk_overlap: int) -> list[str]:
     return chunks
 
 
-def _prompt_for(mode: MinutesMode, transcript: str) -> str:
+def _prompt_for(mode: MinutesMode, transcript: str, vocabulary_section: str) -> str:
     template = DRAFT_PROMPT if mode == "draft" else FINAL_PROMPT
-    return template.format(transcript=transcript)
+    return template.format(transcript=transcript, vocabulary_section=vocabulary_section)
 
 
-def _summary_prompt(part_number: int, total_parts: int, transcript: str) -> str:
+def _summary_prompt(
+    part_number: int,
+    total_parts: int,
+    transcript: str,
+    vocabulary_section: str,
+) -> str:
     return f"""以下は会議文字起こしの一部です。
 後で全体議事録に統合できるよう、事実だけを簡潔に要約してください。
 
@@ -38,7 +44,7 @@ def _summary_prompt(part_number: int, total_parts: int, transcript: str) -> str:
 
 Part: {part_number}/{total_parts}
 
-文字起こし:
+{vocabulary_section}文字起こし:
 {transcript}
 """
 
@@ -55,20 +61,24 @@ def generate_minutes(
         chunk_size=config.chunking.chunk_size,
         chunk_overlap=config.chunking.chunk_overlap,
     )
+    vocabulary_section = build_summary_section(
+        load_vocabulary(config.vocabulary),
+        max_chars=config.vocabulary.max_summary_chars,
+    )
 
     with OllamaClient(config.summarization) as client:
         if len(chunks) == 1:
-            minutes = client.generate(_prompt_for(mode, transcript))
+            minutes = client.generate(_prompt_for(mode, transcript, vocabulary_section))
         else:
             summaries = [
-                client.generate(_summary_prompt(index, len(chunks), chunk))
+                client.generate(_summary_prompt(index, len(chunks), chunk, vocabulary_section))
                 for index, chunk in enumerate(chunks, start=1)
             ]
             integrated_source = "\n\n".join(
                 f"## Chunk Summary {index}\n{summary}"
                 for index, summary in enumerate(summaries, start=1)
             )
-            minutes = client.generate(_prompt_for(mode, integrated_source))
+            minutes = client.generate(_prompt_for(mode, integrated_source, vocabulary_section))
 
     if output is None:
         output_name = "minutes_draft.md" if mode == "draft" else "minutes.md"

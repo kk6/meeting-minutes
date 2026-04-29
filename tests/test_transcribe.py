@@ -12,6 +12,9 @@ class FakeWhisperSegment:
 
 
 class FakeWhisperModel:
+    def __init__(self) -> None:
+        self.last_kwargs: dict[str, object] = {}
+
     def transcribe(
         self,
         audio: np.ndarray,
@@ -19,6 +22,7 @@ class FakeWhisperModel:
     ) -> tuple[list[FakeWhisperSegment], None]:
         assert audio.dtype == np.float32
         assert kwargs["language"] == "ja"
+        self.last_kwargs = kwargs
         return (
             [
                 FakeWhisperSegment(0.2, 1.0, " こんにちは "),
@@ -33,6 +37,7 @@ def test_transcribe_segments_preserves_segment_times() -> None:
     transcriber = WhisperTranscriber.__new__(WhisperTranscriber)
     transcriber._model = FakeWhisperModel()
     transcriber._language = "ja"
+    transcriber._initial_prompt = None
 
     segments = transcriber.transcribe_segments(np.zeros(16000, dtype=np.float32))
 
@@ -46,7 +51,20 @@ def test_transcribe_keeps_joined_text_compatibility() -> None:
     transcriber = WhisperTranscriber.__new__(WhisperTranscriber)
     transcriber._model = FakeWhisperModel()
     transcriber._language = TranscriptionConfig().language
+    transcriber._initial_prompt = None
 
     text = transcriber.transcribe(np.zeros(16000, dtype=np.float32))
 
     assert text == "こんにちは お願いします"
+
+
+def test_transcribe_segments_passes_initial_prompt() -> None:
+    fake_model = FakeWhisperModel()
+    transcriber = WhisperTranscriber.__new__(WhisperTranscriber)
+    transcriber._model = fake_model
+    transcriber._language = "ja"
+    transcriber._initial_prompt = "参加者: 田中"
+
+    transcriber.transcribe_segments(np.zeros(16000, dtype=np.float32))
+
+    assert fake_model.last_kwargs["initial_prompt"] == "参加者: 田中"

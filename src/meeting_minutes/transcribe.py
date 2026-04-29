@@ -14,7 +14,12 @@ class TranscriptionSegment:
 
 
 class WhisperTranscriber:
-    def __init__(self, config: TranscriptionConfig) -> None:
+    def __init__(
+        self,
+        config: TranscriptionConfig,
+        *,
+        initial_prompt: str | None = None,
+    ) -> None:
         try:
             from faster_whisper import WhisperModel
 
@@ -26,6 +31,7 @@ class WhisperTranscriber:
         except (ImportError, OSError, RuntimeError, ValueError) as exc:
             raise TranscriptionError(f"Whisperモデルをロードできませんでした: {exc}") from exc
         self._language = config.language
+        self._initial_prompt = initial_prompt or None
 
     def transcribe(self, audio: np.ndarray) -> str:
         return " ".join(segment.text for segment in self.transcribe_segments(audio)).strip()
@@ -37,6 +43,7 @@ class WhisperTranscriber:
                 language=self._language,
                 vad_filter=True,
                 beam_size=1,
+                initial_prompt=self._initial_prompt,
             )
             results = [
                 TranscriptionSegment(

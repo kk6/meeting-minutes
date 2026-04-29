@@ -38,6 +38,17 @@ class ChunkingConfig(BaseModel):
     chunk_overlap: int = 500
 
 
+class VocabularyConfig(BaseModel):
+    glossary_file: Path | None = None
+    participants_file: Path | None = None
+    # Whisper の initial_prompt は約 224 token が上限。日本語では 1 文字 ≒ 1〜2 token のため、
+    # 200 文字を安全側のデフォルトとする。
+    max_prompt_chars: int = Field(default=200, ge=0)
+    # 要約プロンプトへの語彙注入上限。Ollama の num_ctx を圧迫しないよう項目単位で切り落とす。
+    # 0 で語彙セクションを無効化する。
+    max_summary_chars: int = Field(default=1000, ge=0)
+
+
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="MEETING_MINUTES_", env_nested_delimiter="__")
 
@@ -46,6 +57,7 @@ class AppConfig(BaseSettings):
     summarization: SummarizationConfig = Field(default_factory=SummarizationConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
+    vocabulary: VocabularyConfig = Field(default_factory=VocabularyConfig)
 
 
 def load_config(path: Path | None) -> AppConfig:
@@ -62,7 +74,14 @@ def load_config(path: Path | None) -> AppConfig:
 
 
 def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfig:
-    allowed_sections = {"audio", "transcription", "summarization", "output", "chunking"}
+    allowed_sections = {
+        "audio",
+        "transcription",
+        "summarization",
+        "output",
+        "chunking",
+        "vocabulary",
+    }
     section_updates: dict[str, dict[str, object]] = {}
     for dotted_key, value in overrides.items():
         if value is None:

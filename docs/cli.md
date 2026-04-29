@@ -217,7 +217,26 @@ save_audio = true
 [chunking]
 chunk_size = 6000
 chunk_overlap = 500
+
+[vocabulary]
+# glossary_file = "vocab/glossary.txt"
+# participants_file = "vocab/participants.txt"
+max_prompt_chars = 200
 ```
+
+### 語彙ヒント（vocabulary）
+
+会議ごとに用意した語彙ファイルを指定すると、固有名詞・参加者名の誤認識を抑制し、議事録の表記揺れも減らせます。
+
+- `glossary_file`: 1行1語の用語集（製品名、社内略語、専門用語など）
+- `participants_file`: 1行1名の参加者一覧
+- ファイル形式: UTF-8テキスト、空行と `#` で始まる行は無視
+- `max_prompt_chars`: 文字起こしモデルに渡すヒントの文字数上限（既定 200）。先頭ほど強く効くため、超過分は末尾から切り詰めます。`0` で無効化。
+- `max_summary_chars`: 要約プロンプトへの語彙注入の文字数上限（既定 1000）。上限を超える語彙は末尾から項目単位で切り落とします。`0` で無効化。
+
+ヒントは文字起こし時の `initial_prompt` と要約プロンプトの両方に注入されます。ファイル不在は警告のみで処理は継続します。
+
+機微情報を含む可能性があるため、語彙ファイルは `.gitignore` に登録するなどしてリポジトリにコミットしないでください。
 
 ## トラブルシュート
 
