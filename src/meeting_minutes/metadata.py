@@ -19,6 +19,7 @@ class SessionMetadata(BaseModel):
     ollama_model: str
     language: str
     transcript_path: Path | None
+    audio_path: Path | None
     errors: list[str]
     processing_seconds: float | None = None
 
@@ -30,6 +31,7 @@ def build_metadata(
     input_device: InputDevice,
     config: AppConfig,
     transcript_path: Path | None,
+    audio_path: Path | None,
     errors: list[str],
 ) -> SessionMetadata:
     processing_seconds = (ended_at - started_at).total_seconds() if ended_at else None
@@ -44,6 +46,7 @@ def build_metadata(
         ollama_model=config.summarization.ollama_model,
         language=config.transcription.language,
         transcript_path=transcript_path,
+        audio_path=audio_path,
         errors=errors,
         processing_seconds=processing_seconds,
     )

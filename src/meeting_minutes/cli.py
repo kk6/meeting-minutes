@@ -14,6 +14,10 @@ app = typer.Typer(no_args_is_help=True)
 console = Console()
 
 
+def _disabled_when(flag: bool) -> bool | None:
+    return False if flag else None
+
+
 @app.command()
 def devices() -> None:
     """入力音声デバイスを一覧表示します。"""
@@ -70,6 +74,7 @@ def live(
     ollama_model: Annotated[str | None, typer.Option("--ollama-model")] = None,
     config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
     no_save: Annotated[bool, typer.Option("--no-save")] = False,
+    no_save_audio: Annotated[bool, typer.Option("--no-save-audio")] = False,
     draft_interval_minutes: Annotated[
         int, typer.Option("--draft-interval-minutes", help="0なら自動ドラフト生成なし")
     ] = 0,
@@ -89,7 +94,8 @@ def live(
             "transcription.whisper_model": whisper_model,
             "output.base_dir": output_dir,
             "summarization.ollama_model": ollama_model,
-            "output.save_transcript": False if no_save else None,
+            "output.save_transcript": _disabled_when(no_save),
+            "output.save_audio": _disabled_when(no_save_audio),
         },
     )
     try:
@@ -109,7 +115,16 @@ def draft(
     from meeting_minutes.summarize import generate_minutes
 
     app_config = load_config(config)
-    output_path = generate_minutes(transcript_file, "draft", output, app_config)
+    try:
+        output_path = generate_minutes(
+            transcript_file,
+            "draft",
+            output,
+            app_config,
+        )
+    except MeetingMinutesError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
     console.print(f"[green]Generated:[/green] {output_path}")
 
 
@@ -123,7 +138,16 @@ def finalize(
     from meeting_minutes.summarize import generate_minutes
 
     app_config = load_config(config)
-    output_path = generate_minutes(transcript_file, "final", output, app_config)
+    try:
+        output_path = generate_minutes(
+            transcript_file,
+            "final",
+            output,
+            app_config,
+        )
+    except MeetingMinutesError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
     console.print(f"[green]Generated:[/green] {output_path}")
 
 

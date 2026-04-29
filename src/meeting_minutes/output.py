@@ -46,7 +46,13 @@ def init_transcript(
     )
 
 
-def append_transcript(path: Path, elapsed_seconds: int, text: str) -> None:
+def append_transcript_segment(
+    path: Path,
+    start_seconds: int,
+    end_seconds: int,
+    text: str,
+) -> None:
     with path.open("a", encoding="utf-8") as file:
-        stamp = format_elapsed(elapsed_seconds)
-        file.write(f"[{stamp}] {text}\n")
+        start_stamp = format_elapsed(start_seconds)
+        end_stamp = format_elapsed(end_seconds)
+        file.write(f"[{start_stamp} - {end_stamp}] {text}\n")

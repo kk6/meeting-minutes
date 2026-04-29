@@ -21,6 +21,7 @@ timeout_seconds = 600
 [output]
 base_dir = "output"
 save_transcript = true
+save_audio = true
 
 [chunking]
 chunk_size = 6000
