@@ -25,9 +25,9 @@ uv run meeting-minutes draft ./output/current/transcript_live.md
 uv run meeting-minutes finalize ./output/current/transcript_live.md
 ```
 
-設定例は [config.example.toml](/Users/kk6/CascadeProjects/meeting-minutes/config.example.toml) を参照してください。
+設定例は [config.example.toml](./config.example.toml) を参照してください。
 
-詳しいCLI説明は [docs/cli.md](/Users/kk6/CascadeProjects/meeting-minutes/docs/cli.md) を参照してください。
+詳しいCLI説明は [docs/cli.md](./docs/cli.md) を参照してください。
 
 ## Notes
 
