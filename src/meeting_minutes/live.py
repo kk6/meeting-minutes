@@ -22,6 +22,10 @@ console = Console()
 logger = logging.getLogger(__name__)
 
 
+def _segment_elapsed_seconds(chunk_start_seconds: int, segment_end: float) -> int:
+    return int(chunk_start_seconds + segment_end + 0.5)
+
+
 def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
     started_at = datetime.now()
     input_device = resolve_input_device(config.audio.device, config.audio.device_index)
@@ -56,7 +60,7 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
             if not dedupe.should_keep(text):
                 continue
             for segment in segments:
-                segment_elapsed = int(chunk_start_seconds + segment.end)
+                segment_elapsed = _segment_elapsed_seconds(chunk_start_seconds, segment.end)
                 stamp = format_elapsed(segment_elapsed)
                 console.print(f"[cyan][{stamp}][/cyan] {segment.text}")
                 if transcript_path is not None:
