@@ -10,6 +10,54 @@ from meeting_minutes.live import _segment_elapsed_range, run_live
 from meeting_minutes.transcribe import TranscriptionSegment
 
 
+@pytest.fixture
+def input_device() -> InputDevice:
+    return InputDevice(
+        index=1,
+        name="Mic",
+        channels=1,
+        default_sample_rate=16000,
+        is_blackhole=False,
+    )
+
+
+@pytest.fixture
+def single_chunk_audio(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_audio_chunks(**_kwargs: object) -> Iterator[np.ndarray]:
+        yield np.zeros(16000, dtype=np.float32)
+
+    monkeypatch.setattr("meeting_minutes.live.audio_chunks", fake_audio_chunks)
+
+
+@pytest.fixture
+def fake_transcriber(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeTranscriber:
+        def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
+            pass
+
+        def transcribe_segments(self, _chunk: np.ndarray) -> list[TranscriptionSegment]:
+            return [TranscriptionSegment(start=0.1, end=0.9, text="hello")]
+
+    monkeypatch.setattr("meeting_minutes.live.WhisperTranscriber", FakeTranscriber)
+
+
+@pytest.fixture
+def live_dependencies(
+    input_device: InputDevice,
+    single_chunk_audio: None,
+    fake_transcriber: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("meeting_minutes.live.resolve_input_device", lambda *_args: input_device)
+
+
+def live_config(tmp_path: Path) -> AppConfig:
+    return AppConfig(
+        audio=AudioConfig(chunk_seconds=1),
+        output=OutputConfig(base_dir=tmp_path),
+    )
+
+
 def test_segment_elapsed_range_encloses_segment_times() -> None:
     segment = TranscriptionSegment(start=0.51, end=1.49, text="hello")
 
@@ -18,36 +66,9 @@ def test_segment_elapsed_range_encloses_segment_times() -> None:
 
 def test_run_live_writes_audio_and_transcript(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+    live_dependencies: None,
 ) -> None:
-    input_device = InputDevice(
-        index=1,
-        name="Mic",
-        channels=1,
-        default_sample_rate=16000,
-        is_blackhole=False,
-    )
-
-    def fake_audio_chunks(**_kwargs: object) -> Iterator[np.ndarray]:
-        yield np.zeros(16000, dtype=np.float32)
-
-    class FakeTranscriber:
-        def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
-            pass
-
-        def transcribe_segments(self, _chunk: np.ndarray) -> list[TranscriptionSegment]:
-            return [TranscriptionSegment(start=0.1, end=0.9, text="hello")]
-
-    monkeypatch.setattr("meeting_minutes.live.resolve_input_device", lambda *_args: input_device)
-    monkeypatch.setattr("meeting_minutes.live.audio_chunks", fake_audio_chunks)
-    monkeypatch.setattr("meeting_minutes.live.WhisperTranscriber", FakeTranscriber)
-
-    run_live(
-        AppConfig(
-            audio=AudioConfig(chunk_seconds=1),
-            output=OutputConfig(base_dir=tmp_path),
-        )
-    )
+    run_live(live_config(tmp_path))
 
     transcript = next(tmp_path.glob("*/transcript_live.md")).read_text(encoding="utf-8")
     audio_path = next(tmp_path.glob("*/audio_live.wav"))
@@ -57,41 +78,16 @@ def test_run_live_writes_audio_and_transcript(
 
 def test_run_live_continues_when_audio_writer_cannot_open(
     tmp_path: Path,
+    live_dependencies: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    input_device = InputDevice(
-        index=1,
-        name="Mic",
-        channels=1,
-        default_sample_rate=16000,
-        is_blackhole=False,
-    )
-
-    def fake_audio_chunks(**_kwargs: object) -> Iterator[np.ndarray]:
-        yield np.zeros(16000, dtype=np.float32)
-
-    class FakeTranscriber:
-        def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
-            pass
-
-        def transcribe_segments(self, _chunk: np.ndarray) -> list[TranscriptionSegment]:
-            return [TranscriptionSegment(start=0.1, end=0.9, text="hello")]
-
     class BrokenAudioWriter:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
             raise OSError("disk full")
 
-    monkeypatch.setattr("meeting_minutes.live.resolve_input_device", lambda *_args: input_device)
-    monkeypatch.setattr("meeting_minutes.live.audio_chunks", fake_audio_chunks)
-    monkeypatch.setattr("meeting_minutes.live.WhisperTranscriber", FakeTranscriber)
     monkeypatch.setattr("meeting_minutes.live.WavAudioWriter", BrokenAudioWriter)
 
-    run_live(
-        AppConfig(
-            audio=AudioConfig(chunk_seconds=1),
-            output=OutputConfig(base_dir=tmp_path),
-        )
-    )
+    run_live(live_config(tmp_path))
 
     session_dir = next(tmp_path.glob("*_live_meeting"))
     transcript = (session_dir / "transcript_live.md").read_text(encoding="utf-8")
@@ -102,26 +98,9 @@ def test_run_live_continues_when_audio_writer_cannot_open(
 
 def test_run_live_continues_when_audio_writer_write_fails(
     tmp_path: Path,
+    live_dependencies: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    input_device = InputDevice(
-        index=1,
-        name="Mic",
-        channels=1,
-        default_sample_rate=16000,
-        is_blackhole=False,
-    )
-
-    def fake_audio_chunks(**_kwargs: object) -> Iterator[np.ndarray]:
-        yield np.zeros(16000, dtype=np.float32)
-
-    class FakeTranscriber:
-        def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
-            pass
-
-        def transcribe_segments(self, _chunk: np.ndarray) -> list[TranscriptionSegment]:
-            return [TranscriptionSegment(start=0.1, end=0.9, text="hello")]
-
     class BrokenAudioWriter:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
             pass
@@ -132,17 +111,9 @@ def test_run_live_continues_when_audio_writer_write_fails(
         def close(self) -> None:
             pass
 
-    monkeypatch.setattr("meeting_minutes.live.resolve_input_device", lambda *_args: input_device)
-    monkeypatch.setattr("meeting_minutes.live.audio_chunks", fake_audio_chunks)
-    monkeypatch.setattr("meeting_minutes.live.WhisperTranscriber", FakeTranscriber)
     monkeypatch.setattr("meeting_minutes.live.WavAudioWriter", BrokenAudioWriter)
 
-    run_live(
-        AppConfig(
-            audio=AudioConfig(chunk_seconds=1),
-            output=OutputConfig(base_dir=tmp_path),
-        )
-    )
+    run_live(live_config(tmp_path))
 
     session_dir = next(tmp_path.glob("*_live_meeting"))
     transcript = (session_dir / "transcript_live.md").read_text(encoding="utf-8")
@@ -153,26 +124,9 @@ def test_run_live_continues_when_audio_writer_write_fails(
 
 def test_run_live_writes_metadata_when_audio_writer_close_fails(
     tmp_path: Path,
+    live_dependencies: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    input_device = InputDevice(
-        index=1,
-        name="Mic",
-        channels=1,
-        default_sample_rate=16000,
-        is_blackhole=False,
-    )
-
-    def fake_audio_chunks(**_kwargs: object) -> Iterator[np.ndarray]:
-        yield np.zeros(16000, dtype=np.float32)
-
-    class FakeTranscriber:
-        def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
-            pass
-
-        def transcribe_segments(self, _chunk: np.ndarray) -> list[TranscriptionSegment]:
-            return [TranscriptionSegment(start=0.1, end=0.9, text="hello")]
-
     class BrokenAudioWriter:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
             pass
@@ -183,17 +137,9 @@ def test_run_live_writes_metadata_when_audio_writer_close_fails(
         def close(self) -> None:
             raise OSError("flush failed")
 
-    monkeypatch.setattr("meeting_minutes.live.resolve_input_device", lambda *_args: input_device)
-    monkeypatch.setattr("meeting_minutes.live.audio_chunks", fake_audio_chunks)
-    monkeypatch.setattr("meeting_minutes.live.WhisperTranscriber", FakeTranscriber)
     monkeypatch.setattr("meeting_minutes.live.WavAudioWriter", BrokenAudioWriter)
 
-    run_live(
-        AppConfig(
-            audio=AudioConfig(chunk_seconds=1),
-            output=OutputConfig(base_dir=tmp_path),
-        )
-    )
+    run_live(live_config(tmp_path))
 
     session_dir = next(tmp_path.glob("*_live_meeting"))
     metadata = (session_dir / "metadata.json").read_text(encoding="utf-8")

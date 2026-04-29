@@ -9,6 +9,7 @@ from meeting_minutes.checks import run_checks
 from meeting_minutes.config import apply_overrides, load_config
 from meeting_minutes.devices import list_input_devices
 from meeting_minutes.errors import MeetingMinutesError
+from meeting_minutes.summarize import MinutesMode
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -16,6 +17,28 @@ console = Console()
 
 def _disabled_when(flag: bool) -> bool | None:
     return False if flag else None
+
+
+def _generate_minutes_command(
+    transcript_file: Path,
+    mode: MinutesMode,
+    output: Path | None,
+    config: Path | None,
+) -> None:
+    from meeting_minutes.summarize import generate_minutes
+
+    app_config = load_config(config)
+    try:
+        output_path = generate_minutes(
+            transcript_file,
+            mode,
+            output,
+            app_config,
+        )
+    except MeetingMinutesError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    console.print(f"[green]Generated:[/green] {output_path}")
 
 
 @app.command()
@@ -112,20 +135,7 @@ def draft(
     config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
 ) -> None:
     """現在までの文字起こしから議事録ドラフトを生成します。"""
-    from meeting_minutes.summarize import generate_minutes
-
-    app_config = load_config(config)
-    try:
-        output_path = generate_minutes(
-            transcript_file,
-            "draft",
-            output,
-            app_config,
-        )
-    except MeetingMinutesError as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(code=1) from exc
-    console.print(f"[green]Generated:[/green] {output_path}")
+    _generate_minutes_command(transcript_file, "draft", output, config)
 
 
 @app.command()
@@ -135,20 +145,7 @@ def finalize(
     config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
 ) -> None:
     """文字起こし全体から最終議事録を生成します。"""
-    from meeting_minutes.summarize import generate_minutes
-
-    app_config = load_config(config)
-    try:
-        output_path = generate_minutes(
-            transcript_file,
-            "final",
-            output,
-            app_config,
-        )
-    except MeetingMinutesError as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(code=1) from exc
-    console.print(f"[green]Generated:[/green] {output_path}")
+    _generate_minutes_command(transcript_file, "final", output, config)
 
 
 if __name__ == "__main__":
