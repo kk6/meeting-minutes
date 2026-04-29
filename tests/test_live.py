@@ -32,7 +32,7 @@ def test_run_live_writes_audio_and_transcript(
         yield np.zeros(16000, dtype=np.float32)
 
     class FakeTranscriber:
-        def __init__(self, _config: object) -> None:
+        def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
             pass
 
         def transcribe_segments(self, _chunk: np.ndarray) -> list[TranscriptionSegment]:
@@ -71,7 +71,7 @@ def test_run_live_continues_when_audio_writer_cannot_open(
         yield np.zeros(16000, dtype=np.float32)
 
     class FakeTranscriber:
-        def __init__(self, _config: object) -> None:
+        def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
             pass
 
         def transcribe_segments(self, _chunk: np.ndarray) -> list[TranscriptionSegment]:
@@ -116,7 +116,7 @@ def test_run_live_continues_when_audio_writer_write_fails(
         yield np.zeros(16000, dtype=np.float32)
 
     class FakeTranscriber:
-        def __init__(self, _config: object) -> None:
+        def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
             pass
 
         def transcribe_segments(self, _chunk: np.ndarray) -> list[TranscriptionSegment]:
@@ -167,7 +167,7 @@ def test_run_live_writes_metadata_when_audio_writer_close_fails(
         yield np.zeros(16000, dtype=np.float32)
 
     class FakeTranscriber:
-        def __init__(self, _config: object) -> None:
+        def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
             pass
 
         def transcribe_segments(self, _chunk: np.ndarray) -> list[TranscriptionSegment]:

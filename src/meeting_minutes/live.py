@@ -20,6 +20,7 @@ from meeting_minutes.output import (
 )
 from meeting_minutes.summarize import generate_minutes
 from meeting_minutes.transcribe import TranscriptionSegment, WhisperTranscriber
+from meeting_minutes.vocabulary import build_initial_prompt, load_vocabulary
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -59,7 +60,14 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
     console.print(f"[green]Output:[/green] {session_dir}")
     console.print("Press Ctrl+C to stop.")
 
-    transcriber = WhisperTranscriber(config.transcription)
+    vocabulary = load_vocabulary(config.vocabulary)
+    initial_prompt = build_initial_prompt(
+        vocabulary,
+        max_chars=config.vocabulary.max_prompt_chars,
+    )
+    if initial_prompt:
+        console.print(f"[green]Vocabulary hint:[/green] {len(initial_prompt)} chars")
+    transcriber = WhisperTranscriber(config.transcription, initial_prompt=initial_prompt)
     dedupe = TranscriptDedupe()
     elapsed_seconds = 0
     interval_seconds = draft_interval_minutes * 60

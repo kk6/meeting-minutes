@@ -26,3 +26,11 @@ save_audio = true
 [chunking]
 chunk_size = 6000
 chunk_overlap = 500
+
+[vocabulary]
+# 文字起こし精度向上のための語彙ヒント。会議ごとに用意したテキストファイル（1行1語、`#` でコメント）を指定する。
+# ファイル未指定または存在しない場合は機能無効で従来通り動作する。
+# glossary_file = "vocab/glossary.txt"
+# participants_file = "vocab/participants.txt"
+# Whisper の initial_prompt 上限（約224 token）に収めるための文字数上限。0 でヒント無効。
+max_prompt_chars = 200
