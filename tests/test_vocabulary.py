@@ -36,6 +36,15 @@ def test_load_vocabulary_returns_empty_when_file_missing(tmp_path: Path) -> None
     assert vocab.is_empty
 
 
+def test_load_vocabulary_returns_empty_when_file_not_utf8(tmp_path: Path) -> None:
+    bad_file = tmp_path / "bad.txt"
+    bad_file.write_bytes(b"\xff\xfe\x00")  # UTF-8 として無効なバイト列
+
+    vocab = load_vocabulary(VocabularyConfig(glossary_file=bad_file))
+
+    assert vocab.is_empty
+
+
 def test_build_initial_prompt_returns_none_for_empty_vocab() -> None:
     assert build_initial_prompt(Vocabulary(), max_chars=200) is None
 

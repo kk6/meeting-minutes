@@ -25,7 +25,7 @@ def _read_terms(path: Path | None) -> list[str]:
     except FileNotFoundError:
         logger.warning("語彙ファイルが見つかりません: %s（スキップします）", path)
         return []
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         logger.warning("語彙ファイルを読み込めませんでした: %s (%s)", path, exc)
         return []
 
