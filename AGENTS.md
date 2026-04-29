@@ -89,6 +89,11 @@ Errors should be visible. Silent failure is worse than a crash.
 
 - Use pytest.
 - Test behavior, not implementation details.
+- Prefer testing private helpers through public behavior. Private functions and methods are
+  implementation details, and direct tests for them often make refactoring harder.
+- If a private helper feels important enough to test directly, first consider whether the
+  responsibility should be extracted into a public collaborator or whether the public
+  behavior test is missing an important case.
 - Prefer concise names such as `test_<subject>_<expected_behavior>_when_<condition>`.
 - Use Arrange-Act-Assert structure for longer tests.
 - Add tests for:

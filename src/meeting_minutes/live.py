@@ -22,6 +22,10 @@ console = Console()
 logger = logging.getLogger(__name__)
 
 
+def _segment_elapsed_seconds(chunk_start_seconds: int, segment_end: float) -> int:
+    return int(chunk_start_seconds + segment_end + 0.5)
+
+
 def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
     started_at = datetime.now()
     input_device = resolve_input_device(config.audio.device, config.audio.device_index)
@@ -49,14 +53,18 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
             channels=config.audio.channels,
             chunk_seconds=config.audio.chunk_seconds,
         ):
+            chunk_start_seconds = elapsed_seconds
             elapsed_seconds += config.audio.chunk_seconds
-            text = transcriber.transcribe(chunk)
+            segments = transcriber.transcribe_segments(chunk)
+            text = " ".join(segment.text for segment in segments).strip()
             if not dedupe.should_keep(text):
                 continue
-            stamp = format_elapsed(elapsed_seconds)
-            console.print(f"[cyan][{stamp}][/cyan] {text}")
-            if transcript_path is not None:
-                append_transcript(transcript_path, elapsed_seconds, text)
+            for segment in segments:
+                segment_elapsed = _segment_elapsed_seconds(chunk_start_seconds, segment.end)
+                stamp = format_elapsed(segment_elapsed)
+                console.print(f"[cyan][{stamp}][/cyan] {segment.text}")
+                if transcript_path is not None:
+                    append_transcript(transcript_path, segment_elapsed, segment.text)
 
             if (
                 next_draft_at is not None
