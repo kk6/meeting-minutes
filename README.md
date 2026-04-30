@@ -23,6 +23,8 @@ uv run meeting-minutes devices
 uv run meeting-minutes live --device "BlackHole 2ch"
 uv run meeting-minutes draft ./output/current/transcript_live.md
 uv run meeting-minutes finalize ./output/current/transcript_live.md
+# liveを再起動して transcript が分かれた場合
+uv run meeting-minutes finalize ./output/session-1/transcript_live.md ./output/session-2/transcript_live.md
 ```
 
 設定例は [config.example.toml](./config.example.toml) を参照してください。
@@ -35,4 +37,5 @@ uv run meeting-minutes finalize ./output/current/transcript_live.md
 - 議事録生成はローカルOllama API (`http://localhost:11434`) を使います。
 - `live` はデフォルトでセッションディレクトリに `audio_live.wav` を保存します。保存は `--no-save-audio` または `output.save_audio=false` で無効化できます。
 - `live` はCtrl+Cで停止し、`metadata.json` を保存します。
+- 音声取り逃がし時は既定で停止します。少量の欠落を許容して続行する場合は `--continue-on-overflow` または `audio.abort_on_overflow=false` を使います。
 - 用語集と参加者名のテキストファイルを `[vocabulary]` セクションで指定すると、固有名詞の誤認識と表記揺れを抑制できます。詳しくは [docs/cli.md](./docs/cli.md#語彙ヒントvocabulary) を参照してください。

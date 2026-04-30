@@ -1,9 +1,11 @@
+import json
 from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from meeting_minutes.audio_stream import AudioOverflowError
 from meeting_minutes.config import AppConfig, AudioConfig, OutputConfig
 from meeting_minutes.devices import InputDevice
 from meeting_minutes.live import _segment_elapsed_range, run_live
@@ -144,3 +146,60 @@ def test_run_live_writes_metadata_when_audio_writer_close_fails(
     session_dir = next(tmp_path.glob("*_live_meeting"))
     metadata = (session_dir / "metadata.json").read_text(encoding="utf-8")
     assert "audio recording close failed: flush failed" in metadata
+
+
+def test_run_live_continues_and_records_audio_overflow_when_configured(
+    tmp_path: Path,
+    input_device: InputDevice,
+    fake_transcriber: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_audio_chunks(
+        *,
+        abort_on_overflow: bool,
+        on_overflow: object,
+        **_kwargs: object,
+    ) -> Iterator[np.ndarray]:
+        assert not abort_on_overflow
+        assert callable(on_overflow)
+        on_overflow(1)
+        on_overflow(2)
+        yield np.zeros(16000, dtype=np.float32)
+
+    monkeypatch.setattr("meeting_minutes.live.resolve_input_device", lambda *_args: input_device)
+    monkeypatch.setattr("meeting_minutes.live.audio_chunks", fake_audio_chunks)
+
+    config = AppConfig(
+        audio=AudioConfig(chunk_seconds=1, abort_on_overflow=False),
+        output=OutputConfig(base_dir=tmp_path),
+    )
+    run_live(config)
+
+    session_dir = next(tmp_path.glob("*_live_meeting"))
+    transcript = (session_dir / "transcript_live.md").read_text(encoding="utf-8")
+    metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
+    assert "[00:00:00 - 00:00:01] hello" in transcript
+    assert metadata["errors"] == [
+        "音声入力の処理が追いつかず、合計 3 block(s) を 2 event(s) で取り逃がしました。"
+    ]
+
+
+def test_run_live_aborts_on_audio_overflow_by_default(
+    tmp_path: Path,
+    input_device: InputDevice,
+    fake_transcriber: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_audio_chunks(*, abort_on_overflow: bool, **_kwargs: object) -> Iterator[np.ndarray]:
+        assert abort_on_overflow
+        raise AudioOverflowError("音声入力の処理が追いつかず、1 block(s) を取り逃がしました。")
+
+    monkeypatch.setattr("meeting_minutes.live.resolve_input_device", lambda *_args: input_device)
+    monkeypatch.setattr("meeting_minutes.live.audio_chunks", fake_audio_chunks)
+
+    with pytest.raises(AudioOverflowError):
+        run_live(live_config(tmp_path))
+
+    session_dir = next(tmp_path.glob("*_live_meeting"))
+    metadata = (session_dir / "metadata.json").read_text(encoding="utf-8")
+    assert "1 block(s) を取り逃がしました" in metadata

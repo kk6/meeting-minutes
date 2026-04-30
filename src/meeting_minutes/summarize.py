@@ -1,7 +1,9 @@
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
 from meeting_minutes.config import AppConfig
+from meeting_minutes.errors import MeetingMinutesError
 from meeting_minutes.ollama_client import OllamaClient
 from meeting_minutes.prompts import DRAFT_PROMPT, FINAL_PROMPT
 from meeting_minutes.vocabulary import build_summary_section, load_vocabulary
@@ -77,13 +79,27 @@ def _default_output_path(transcript_file: Path, mode: MinutesMode) -> Path:
     return transcript_file.parent / output_name
 
 
+def _read_transcripts(transcript_files: Sequence[Path]) -> str:
+    sections = []
+    for index, transcript_file in enumerate(transcript_files, start=1):
+        transcript = transcript_file.read_text(encoding="utf-8").strip()
+        sections.append(f"## Transcript {index}: {transcript_file.name}\n\n{transcript}")
+    return "\n\n".join(sections)
+
+
 def generate_minutes(
-    transcript_file: Path,
+    transcript_file: Path | Sequence[Path],
     mode: MinutesMode,
     output: Path | None,
     config: AppConfig,
 ) -> Path:
-    transcript = transcript_file.read_text(encoding="utf-8")
+    transcript_files = (
+        [transcript_file] if isinstance(transcript_file, Path) else list(transcript_file)
+    )
+    if not transcript_files:
+        raise MeetingMinutesError("文字起こしファイルを1つ以上指定してください。")
+
+    transcript = _read_transcripts(transcript_files)
     chunks = split_text(
         transcript,
         chunk_size=config.chunking.chunk_size,
@@ -98,7 +114,7 @@ def generate_minutes(
         minutes = _generate_from_chunks(client, mode, chunks, vocabulary_section)
 
     if output is None:
-        output = _default_output_path(transcript_file, mode)
+        output = _default_output_path(transcript_files[0], mode)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(minutes.rstrip() + "\n", encoding="utf-8")
     return output

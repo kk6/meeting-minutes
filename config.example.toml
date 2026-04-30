@@ -4,6 +4,8 @@ device = "BlackHole 2ch"
 sample_rate = 16000
 channels = 1
 chunk_seconds = 8
+# true: 音声取り逃がし時に停止する。false: metadataに記録して続行する。
+abort_on_overflow = true
 
 [transcription]
 whisper_model = "small"

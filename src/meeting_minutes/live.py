@@ -110,6 +110,27 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
     elapsed_seconds = 0
     interval_seconds = draft_interval_minutes * 60
     next_draft_at = interval_seconds if interval_seconds > 0 else None
+    overflow_events = 0
+    overflow_blocks = 0
+    overflow_error_index: int | None = None
+
+    def record_audio_overflow(dropped_blocks: int) -> None:
+        nonlocal overflow_blocks, overflow_error_index, overflow_events
+        overflow_events += 1
+        overflow_blocks += dropped_blocks
+        message = (
+            "音声入力の処理が追いつかず、"
+            f"合計 {overflow_blocks} block(s) を {overflow_events} event(s) で取り逃がしました。"
+        )
+        if overflow_error_index is None:
+            overflow_error_index = len(errors)
+            errors.append(message)
+        else:
+            errors[overflow_error_index] = message
+
+        if overflow_events == 1 or overflow_events % 10 == 0:
+            logger.warning(message)
+            console.print(f"[yellow]{message} 続行します。[/yellow]")
 
     try:
         audio_recording = AudioRecording.open(
@@ -123,6 +144,8 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
             sample_rate=config.audio.sample_rate,
             channels=config.audio.channels,
             chunk_seconds=config.audio.chunk_seconds,
+            abort_on_overflow=config.audio.abort_on_overflow,
+            on_overflow=record_audio_overflow,
         ):
             chunk_start_seconds = elapsed_seconds
             elapsed_seconds += config.audio.chunk_seconds
