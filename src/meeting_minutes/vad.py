@@ -1,5 +1,6 @@
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from math import ceil
 
 import numpy as np
 
@@ -17,20 +18,21 @@ class SpeechSegmenter:
     def __init__(self, config: VadConfig, *, sample_rate: int) -> None:
         self._config = config
         self._sample_rate = sample_rate
-        self._frame_samples = max(round(sample_rate * config.frame_ms / 1000), 1)
+        self._frame_samples = max(ceil(sample_rate * config.frame_ms / 1000), 1)
         self._silence_frames = max(
-            round(config.silence_seconds * sample_rate / self._frame_samples),
+            ceil(config.silence_seconds * sample_rate / self._frame_samples),
             1,
         )
-        self._padding_samples = round(config.padding_seconds * sample_rate)
-        self._min_speech_samples = round(config.min_speech_seconds * sample_rate)
-        self._max_speech_samples = round(config.max_speech_seconds * sample_rate)
+        self._padding_samples = ceil(config.padding_seconds * sample_rate)
+        self._min_speech_samples = ceil(config.min_speech_seconds * sample_rate)
+        self._max_speech_samples = ceil(config.max_speech_seconds * sample_rate)
         self._pre_roll = np.empty(0, dtype=np.float32)
         self._pending_frame = np.empty(0, dtype=np.float32)
-        self._speech_audio = np.empty(0, dtype=np.float32)
+        self._speech_frames: list[np.ndarray] = []
         self._speech_start_sample: int | None = None
-        self._silence_audio = np.empty(0, dtype=np.float32)
+        self._silence_samples = 0
         self._silence_frame_count = 0
+        self._speech_samples = 0
         self._processed_samples = 0
 
     def process(self, chunk: np.ndarray) -> Iterator[SpeechSegment]:
@@ -74,16 +76,17 @@ class SpeechSegmenter:
             self._processed_samples += frame.shape[0]
             return []
 
-        self._speech_audio = np.concatenate((self._speech_audio, frame))
+        self._speech_frames.append(frame)
+        self._speech_samples += frame.shape[0]
         if is_speech:
-            self._silence_audio = np.empty(0, dtype=np.float32)
+            self._silence_samples = 0
             self._silence_frame_count = 0
         else:
-            self._silence_audio = np.concatenate((self._silence_audio, frame))
+            self._silence_samples += frame.shape[0]
             self._silence_frame_count += 1
 
         self._processed_samples += frame.shape[0]
-        if self._speech_audio.shape[0] >= self._max_speech_samples:
+        if self._speech_samples >= self._max_speech_samples:
             segment = self._finish_speech(include_trailing_silence=True)
             return [segment] if segment is not None else []
         if self._silence_frame_count >= self._silence_frames:
@@ -93,28 +96,36 @@ class SpeechSegmenter:
 
     def _start_speech(self, frame: np.ndarray) -> None:
         self._speech_start_sample = self._processed_samples - self._pre_roll.shape[0]
-        self._speech_audio = np.concatenate((self._pre_roll, frame))
+        self._speech_frames = [self._pre_roll, frame] if self._pre_roll.size else [frame]
+        self._speech_samples = self._pre_roll.shape[0] + frame.shape[0]
         self._pre_roll = np.empty(0, dtype=np.float32)
-        self._silence_audio = np.empty(0, dtype=np.float32)
+        self._silence_samples = 0
         self._silence_frame_count = 0
 
     def _finish_speech(self, *, include_trailing_silence: bool) -> SpeechSegment | None:
         if self._speech_start_sample is None:
             return None
 
-        trailing_silence_samples = 0 if include_trailing_silence else self._silence_audio.shape[0]
-        speech_audio = self._speech_audio[: self._speech_audio.shape[0] - trailing_silence_samples]
+        speech_audio = (
+            np.concatenate(self._speech_frames)
+            if self._speech_frames
+            else np.empty(0, dtype=np.float32)
+        )
+        trailing_silence_samples = 0 if include_trailing_silence else self._silence_samples
+        if trailing_silence_samples:
+            speech_audio = speech_audio[: speech_audio.shape[0] - trailing_silence_samples]
         speech_start_sample = self._speech_start_sample
         speech_end_sample = speech_start_sample + speech_audio.shape[0]
         self._pre_roll = (
-            self._speech_audio[-self._padding_samples :]
+            speech_audio[-self._padding_samples :]
             if self._padding_samples
             else np.empty(0, dtype=np.float32)
         )
-        self._speech_audio = np.empty(0, dtype=np.float32)
+        self._speech_frames = []
         self._speech_start_sample = None
-        self._silence_audio = np.empty(0, dtype=np.float32)
+        self._silence_samples = 0
         self._silence_frame_count = 0
+        self._speech_samples = 0
 
         if speech_audio.shape[0] < self._min_speech_samples:
             return None

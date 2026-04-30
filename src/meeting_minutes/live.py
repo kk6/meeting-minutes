@@ -251,7 +251,8 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
         if transcription_runner.flush():
             draft_scheduler.maybe_generate(elapsed_seconds)
     except KeyboardInterrupt:
-        transcription_runner.flush()
+        if transcription_runner.flush():
+            draft_scheduler.maybe_generate(elapsed_seconds)
         console.print("\n[yellow]Stopping...[/yellow]")
     except Exception as exc:
         logger.exception("Live session aborted")

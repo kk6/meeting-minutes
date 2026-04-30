@@ -32,6 +32,33 @@ def test_speech_segmenter_emits_speech_after_trailing_silence() -> None:
     assert np.allclose(segments[0].audio, [0.0, 0.1, 0.1, 0.1, 0.1])
 
 
+def test_speech_segmenter_pre_roll_excludes_trailing_silence() -> None:
+    segmenter = SpeechSegmenter(
+        VadConfig(
+            frame_ms=100,
+            speech_threshold=0.01,
+            silence_seconds=0.2,
+            min_speech_seconds=0.1,
+            max_speech_seconds=5,
+            padding_seconds=0.2,
+        ),
+        sample_rate=10,
+    )
+    audio = np.concatenate(
+        (
+            np.full(3, 0.1, dtype=np.float32),
+            np.zeros(2, dtype=np.float32),
+            np.full(2, 0.1, dtype=np.float32),
+            np.zeros(2, dtype=np.float32),
+        )
+    )
+
+    segments = list(segmenter.process(audio))
+
+    assert len(segments) == 2
+    assert np.allclose(segments[1].audio, [0.1, 0.1, 0.1, 0.1])
+
+
 def test_speech_segmenter_forces_split_when_speech_is_too_long() -> None:
     segmenter = SpeechSegmenter(
         VadConfig(
