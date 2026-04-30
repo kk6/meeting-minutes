@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 from meeting_minutes.config import AppConfig
+from meeting_minutes.errors import MeetingMinutesError
 from meeting_minutes.ollama_client import OllamaClient
 from meeting_minutes.prompts import DRAFT_PROMPT, FINAL_PROMPT
 from meeting_minutes.vocabulary import build_summary_section, load_vocabulary
@@ -82,7 +83,7 @@ def _read_transcripts(transcript_files: Sequence[Path]) -> str:
     sections = []
     for index, transcript_file in enumerate(transcript_files, start=1):
         transcript = transcript_file.read_text(encoding="utf-8").strip()
-        sections.append(f"## Transcript {index}: {transcript_file}\n\n{transcript}")
+        sections.append(f"## Transcript {index}: {transcript_file.name}\n\n{transcript}")
     return "\n\n".join(sections)
 
 
@@ -96,7 +97,7 @@ def generate_minutes(
         [transcript_file] if isinstance(transcript_file, Path) else list(transcript_file)
     )
     if not transcript_files:
-        raise ValueError("At least one transcript file is required.")
+        raise MeetingMinutesError("文字起こしファイルを1つ以上指定してください。")
 
     transcript = _read_transcripts(transcript_files)
     chunks = split_text(

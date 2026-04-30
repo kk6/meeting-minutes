@@ -4,6 +4,7 @@ from types import TracebackType
 import pytest
 
 from meeting_minutes.config import AppConfig
+from meeting_minutes.errors import MeetingMinutesError
 from meeting_minutes.summarize import generate_minutes, split_text
 
 
@@ -50,8 +51,15 @@ def test_generate_minutes_combines_multiple_transcripts_in_order(
 
     assert output == first.parent / "minutes.md"
     assert output.read_text(encoding="utf-8") == "generated minutes\n"
-    assert "## Transcript 1:" in prompts[0]
+    assert "## Transcript 1: transcript_live.md" in prompts[0]
+    assert str(first.parent) not in prompts[0]
     assert "first transcript" in prompts[0]
-    assert "## Transcript 2:" in prompts[0]
+    assert "## Transcript 2: transcript_live.md" in prompts[0]
+    assert str(second.parent) not in prompts[0]
     assert "second transcript" in prompts[0]
     assert prompts[0].index("first transcript") < prompts[0].index("second transcript")
+
+
+def test_generate_minutes_raises_domain_error_for_empty_transcripts() -> None:
+    with pytest.raises(MeetingMinutesError, match="文字起こしファイルを1つ以上指定してください"):
+        generate_minutes([], "final", None, AppConfig())
