@@ -111,6 +111,11 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
     interval_seconds = draft_interval_minutes * 60
     next_draft_at = interval_seconds if interval_seconds > 0 else None
 
+    def record_audio_overflow(message: str) -> None:
+        logger.warning(message)
+        errors.append(message)
+        console.print(f"[yellow]{message} 続行します。[/yellow]")
+
     try:
         audio_recording = AudioRecording.open(
             audio_path,
@@ -123,6 +128,8 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
             sample_rate=config.audio.sample_rate,
             channels=config.audio.channels,
             chunk_seconds=config.audio.chunk_seconds,
+            abort_on_overflow=config.audio.abort_on_overflow,
+            on_overflow=record_audio_overflow,
         ):
             chunk_start_seconds = elapsed_seconds
             elapsed_seconds += config.audio.chunk_seconds

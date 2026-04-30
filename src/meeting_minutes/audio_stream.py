@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from queue import Full, Queue
 
 import numpy as np
@@ -17,6 +17,8 @@ def audio_chunks(
     sample_rate: int,
     channels: int,
     chunk_seconds: int,
+    abort_on_overflow: bool = True,
+    on_overflow: Callable[[str], None] | None = None,
 ) -> Iterator[np.ndarray]:
     frames_per_chunk = sample_rate * chunk_seconds
     block_frames = max(sample_rate // 2, 1)
@@ -51,9 +53,11 @@ def audio_chunks(
             if dropped_blocks:
                 dropped = dropped_blocks
                 dropped_blocks = 0
-                raise AudioOverflowError(
-                    f"音声入力の処理が追いつかず、{dropped} block(s) を取り逃がしました。"
-                )
+                message = f"音声入力の処理が追いつかず、{dropped} block(s) を取り逃がしました。"
+                if abort_on_overflow:
+                    raise AudioOverflowError(message)
+                if on_overflow is not None:
+                    on_overflow(message)
             while pending.shape[0] < frames_per_chunk:
                 pending = np.concatenate((pending, queue.get()))
             chunk = pending[:frames_per_chunk]

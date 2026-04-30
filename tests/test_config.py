@@ -12,6 +12,7 @@ def test_load_config_from_toml(tmp_path: Path) -> None:
 [audio]
 device = "BlackHole 2ch"
 chunk_seconds = 5
+abort_on_overflow = false
 
 [summarization]
 ollama_model = "gemma4:latest"
@@ -23,6 +24,7 @@ ollama_model = "gemma4:latest"
 
     assert config.audio.device == "BlackHole 2ch"
     assert config.audio.chunk_seconds == 5
+    assert not config.audio.abort_on_overflow
     assert config.summarization.ollama_model == "gemma4:latest"
 
 

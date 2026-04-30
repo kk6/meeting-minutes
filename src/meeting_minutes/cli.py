@@ -19,8 +19,20 @@ def _disabled_when(flag: bool) -> bool | None:
     return False if flag else None
 
 
+def _overflow_abort_setting(continue_on_overflow: bool, abort_on_overflow: bool) -> bool | None:
+    if continue_on_overflow and abort_on_overflow:
+        raise typer.BadParameter(
+            "--continue-on-overflow と --abort-on-overflow は同時に指定できません"
+        )
+    if continue_on_overflow:
+        return False
+    if abort_on_overflow:
+        return True
+    return None
+
+
 def _generate_minutes_command(
-    transcript_file: Path,
+    transcript_files: list[Path],
     mode: MinutesMode,
     output: Path | None,
     config: Path | None,
@@ -30,7 +42,7 @@ def _generate_minutes_command(
     app_config = load_config(config)
     try:
         output_path = generate_minutes(
-            transcript_file,
+            transcript_files,
             mode,
             output,
             app_config,
@@ -98,6 +110,14 @@ def live(
     config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
     no_save: Annotated[bool, typer.Option("--no-save")] = False,
     no_save_audio: Annotated[bool, typer.Option("--no-save-audio")] = False,
+    continue_on_overflow: Annotated[
+        bool,
+        typer.Option("--continue-on-overflow", help="音声取り逃がし時も記録して続行する"),
+    ] = False,
+    abort_on_overflow: Annotated[
+        bool,
+        typer.Option("--abort-on-overflow", help="音声取り逃がし時に停止する"),
+    ] = False,
     draft_interval_minutes: Annotated[
         int, typer.Option("--draft-interval-minutes", help="0なら自動ドラフト生成なし")
     ] = 0,
@@ -119,6 +139,10 @@ def live(
             "summarization.ollama_model": ollama_model,
             "output.save_transcript": _disabled_when(no_save),
             "output.save_audio": _disabled_when(no_save_audio),
+            "audio.abort_on_overflow": _overflow_abort_setting(
+                continue_on_overflow,
+                abort_on_overflow,
+            ),
         },
     )
     try:
@@ -130,22 +154,22 @@ def live(
 
 @app.command()
 def draft(
-    transcript_file: Annotated[Path, typer.Argument(exists=True, readable=True)],
+    transcript_files: Annotated[list[Path], typer.Argument(exists=True, readable=True)],
     output: Annotated[Path | None, typer.Option("--output", "-o")] = None,
     config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
 ) -> None:
     """現在までの文字起こしから議事録ドラフトを生成します。"""
-    _generate_minutes_command(transcript_file, "draft", output, config)
+    _generate_minutes_command(transcript_files, "draft", output, config)
 
 
 @app.command()
 def finalize(
-    transcript_file: Annotated[Path, typer.Argument(exists=True, readable=True)],
+    transcript_files: Annotated[list[Path], typer.Argument(exists=True, readable=True)],
     output: Annotated[Path | None, typer.Option("--output", "-o")] = None,
     config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
 ) -> None:
     """文字起こし全体から最終議事録を生成します。"""
-    _generate_minutes_command(transcript_file, "final", output, config)
+    _generate_minutes_command(transcript_files, "final", output, config)
 
 
 if __name__ == "__main__":

@@ -101,6 +101,8 @@ uv run meeting-minutes live --device-index 1
 | `--config` | なし | TOML設定ファイル |
 | `--no-save` | `false` | transcriptを保存しない |
 | `--no-save-audio` | `false` | 録音WAVを保存しない |
+| `--continue-on-overflow` | `false` | 音声取り逃がし時も `metadata.json` に記録して続行 |
+| `--abort-on-overflow` | 設定ファイルまたは `true` | 音声取り逃がし時に停止 |
 | `--draft-interval-minutes` | `0` | 指定分ごとにドラフト生成。`0`なら無効 |
 
 出力先の例:
@@ -117,6 +119,8 @@ output/
 `transcript_live.md` の本文は、後から音声と照合しやすいように `[開始 - 終了] text` 形式で保存されます。
 
 停止するには `Ctrl+C` を押します。停止時に `metadata.json` が保存されます。
+
+音声入力の処理が追いつかず一部ブロックを取り逃がした場合、既定では停止します。長時間会議で少量の欠落を許容して継続したい場合は `--continue-on-overflow` または設定ファイルの `audio.abort_on_overflow = false` を使います。継続時も取り逃がしは `metadata.json` の `errors` に記録されます。
 
 ### BlackHole 64chを使う場合
 
@@ -140,10 +144,18 @@ uv run meeting-minutes live --device "BlackHole 64ch" --channels 2
 uv run meeting-minutes draft ./output/2026-04-28_193822_live_meeting/transcript_live.md
 ```
 
+途中で `live` を再起動した場合など、複数の transcript を順番に指定できます。
+
+```bash
+uv run meeting-minutes draft \
+  ./output/session-1/transcript_live.md \
+  ./output/session-2/transcript_live.md
+```
+
 既定の出力先:
 
 ```text
-minutes_draft.md
+先頭 transcript と同じディレクトリの minutes_draft.md
 ```
 
 出力先を指定する場合:
@@ -166,10 +178,18 @@ uv run meeting-minutes draft ./output/current/transcript_live.md --config ./conf
 uv run meeting-minutes finalize ./output/2026-04-28_193822_live_meeting/transcript_live.md
 ```
 
+途中で `live` を再起動した場合など、複数の transcript を順番に指定できます。
+
+```bash
+uv run meeting-minutes finalize \
+  ./output/session-1/transcript_live.md \
+  ./output/session-2/transcript_live.md
+```
+
 既定の出力先:
 
 ```text
-minutes.md
+先頭 transcript と同じディレクトリの minutes.md
 ```
 
 出力先を指定する場合:
@@ -195,6 +215,8 @@ device = "BlackHole 64ch"
 sample_rate = 16000
 channels = 1
 chunk_seconds = 8
+# true: 音声取り逃がし時に停止する。false: metadataに記録して続行する。
+abort_on_overflow = true
 
 [transcription]
 whisper_model = "small"

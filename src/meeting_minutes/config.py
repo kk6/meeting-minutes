@@ -10,6 +10,7 @@ class AudioConfig(BaseModel):
     sample_rate: int = 16_000
     channels: int = 1
     chunk_seconds: int = Field(default=8, ge=1)
+    abort_on_overflow: bool = True
 
 
 class TranscriptionConfig(BaseModel):
