@@ -36,6 +36,7 @@ uv run meeting-minutes finalize ./output/session-1/transcript_live.md ./output/s
 - 音声と文字起こし内容はクラウドAPIへ送信しません。
 - 議事録生成はローカルOllama API (`http://localhost:11434`) を使います。
 - `live` はデフォルトでセッションディレクトリに `audio_live.wav` を保存します。保存は `--no-save-audio` または `output.save_audio=false` で無効化できます。
+- `live` はデフォルトでVADを使い、発話単位で文字起こしします。固定秒数チャンクに戻す場合は `--no-vad` または `vad.enabled=false` を使います。
 - `live` はCtrl+Cで停止し、`metadata.json` を保存します。
 - 音声取り逃がし時は既定で停止します。少量の欠落を許容して続行する場合は `--continue-on-overflow` または `audio.abort_on_overflow=false` を使います。
 - 用語集と参加者名のテキストファイルを `[vocabulary]` セクションで指定すると、固有名詞の誤認識と表記揺れを抑制できます。詳しくは [docs/cli.md](./docs/cli.md#語彙ヒントvocabulary) を参照してください。

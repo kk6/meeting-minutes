@@ -26,7 +26,7 @@ def input_device() -> InputDevice:
 @pytest.fixture
 def single_chunk_audio(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_audio_chunks(**_kwargs: object) -> Iterator[np.ndarray]:
-        yield np.zeros(16000, dtype=np.float32)
+        yield np.full(16000, 0.1, dtype=np.float32)
 
     monkeypatch.setattr("meeting_minutes.live.audio_chunks", fake_audio_chunks)
 
@@ -164,7 +164,7 @@ def test_run_live_continues_and_records_audio_overflow_when_configured(
         assert callable(on_overflow)
         on_overflow(1)
         on_overflow(2)
-        yield np.zeros(16000, dtype=np.float32)
+        yield np.full(16000, 0.1, dtype=np.float32)
 
     monkeypatch.setattr("meeting_minutes.live.resolve_input_device", lambda *_args: input_device)
     monkeypatch.setattr("meeting_minutes.live.audio_chunks", fake_audio_chunks)

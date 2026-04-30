@@ -73,7 +73,7 @@ uv run meeting-minutes devices
 
 ## live
 
-指定した入力デバイスから音声を取得し、数秒ごとに文字起こしします。
+指定した入力デバイスから音声を取得し、VADで検出した発話単位で文字起こしします。
 
 ```bash
 uv run meeting-minutes live --device "BlackHole 64ch"
@@ -93,7 +93,7 @@ uv run meeting-minutes live --device-index 1
 | `--device-index` | 設定ファイルまたは既定入力 | 入力デバイスindex |
 | `--sample-rate` | `16000` | サンプルレート |
 | `--channels` | `1` | 入力チャンネル数 |
-| `--chunk-seconds` | `8` | 文字起こし1単位の秒数 |
+| `--chunk-seconds` | `8` | 音声取得チャンクの秒数 |
 | `--language` | `ja` | Whisperに渡す言語 |
 | `--whisper-model` | `small` | faster-whisperのモデル名 |
 | `--output-dir` | `output` | セッション出力先 |
@@ -101,6 +101,7 @@ uv run meeting-minutes live --device-index 1
 | `--config` | なし | TOML設定ファイル |
 | `--no-save` | `false` | transcriptを保存しない |
 | `--no-save-audio` | `false` | 録音WAVを保存しない |
+| `--no-vad` | `false` | VADによる発話単位分割を無効化し、固定秒数チャンクで文字起こし |
 | `--continue-on-overflow` | `false` | 音声取り逃がし時も `metadata.json` に記録して続行 |
 | `--abort-on-overflow` | 設定ファイルまたは `true` | 音声取り逃がし時に停止 |
 | `--draft-interval-minutes` | `0` | 指定分ごとにドラフト生成。`0`なら無効 |
@@ -119,6 +120,8 @@ output/
 `transcript_live.md` の本文は、後から音声と照合しやすいように `[開始 - 終了] text` 形式で保存されます。
 
 停止するには `Ctrl+C` を押します。停止時に `metadata.json` が保存されます。
+
+VADは既定で有効です。無音が続いたところで発話終了とみなし、短すぎる音声はノイズとして捨てます。長すぎる発話は `vad.max_speech_seconds` で強制分割します。固定秒数チャンクの従来動作に戻したい場合は `--no-vad` または設定ファイルの `vad.enabled = false` を使います。
 
 音声入力の処理が追いつかず一部ブロックを取り逃がした場合、既定では停止します。長時間会議で少量の欠落を許容して継続したい場合は `--continue-on-overflow` または設定ファイルの `audio.abort_on_overflow = false` を使います。継続時も取り逃がしは `metadata.json` の `errors` に記録されます。
 
@@ -217,6 +220,15 @@ channels = 1
 chunk_seconds = 8
 # true: 音声取り逃がし時に停止する。false: metadataに記録して続行する。
 abort_on_overflow = true
+
+[vad]
+enabled = true
+frame_ms = 30
+speech_threshold = 0.01
+silence_seconds = 0.8
+min_speech_seconds = 0.3
+max_speech_seconds = 15.0
+padding_seconds = 0.2
 
 [transcription]
 whisper_model = "small"
