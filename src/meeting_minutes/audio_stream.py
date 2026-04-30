@@ -1,5 +1,6 @@
 from collections.abc import Callable, Iterator
 from queue import Full, Queue
+from threading import Lock
 
 import numpy as np
 import sounddevice as sd
@@ -18,12 +19,25 @@ def audio_chunks(
     channels: int,
     chunk_seconds: int,
     abort_on_overflow: bool = True,
-    on_overflow: Callable[[str], None] | None = None,
+    on_overflow: Callable[[int], None] | None = None,
 ) -> Iterator[np.ndarray]:
     frames_per_chunk = sample_rate * chunk_seconds
     block_frames = max(sample_rate // 2, 1)
     queue: Queue[np.ndarray] = Queue(maxsize=240)  # 120 seconds at the current ~0.5s block size.
     dropped_blocks = 0
+    dropped_blocks_lock = Lock()
+
+    def add_dropped_block() -> None:
+        nonlocal dropped_blocks
+        with dropped_blocks_lock:
+            dropped_blocks += 1
+
+    def pop_dropped_blocks() -> int:
+        nonlocal dropped_blocks
+        with dropped_blocks_lock:
+            dropped = dropped_blocks
+            dropped_blocks = 0
+        return dropped
 
     def callback(
         indata: np.ndarray,
@@ -31,14 +45,13 @@ def audio_chunks(
         _time: object,
         status: sd.CallbackFlags,
     ) -> None:
-        nonlocal dropped_blocks
         if status.input_overflow:
-            dropped_blocks += 1
+            add_dropped_block()
         mono = indata.mean(axis=1) if indata.ndim > 1 else indata
         try:
             queue.put_nowait(np.asarray(mono, dtype=np.float32).copy())
         except Full:
-            dropped_blocks += 1
+            add_dropped_block()
 
     with sd.InputStream(
         samplerate=sample_rate,
@@ -50,14 +63,13 @@ def audio_chunks(
     ):
         pending = np.empty(0, dtype=np.float32)
         while True:
-            if dropped_blocks:
-                dropped = dropped_blocks
-                dropped_blocks = 0
+            dropped = pop_dropped_blocks()
+            if dropped:
                 message = f"音声入力の処理が追いつかず、{dropped} block(s) を取り逃がしました。"
                 if abort_on_overflow:
                     raise AudioOverflowError(message)
                 if on_overflow is not None:
-                    on_overflow(message)
+                    on_overflow(dropped)
             while pending.shape[0] < frames_per_chunk:
                 pending = np.concatenate((pending, queue.get()))
             chunk = pending[:frames_per_chunk]

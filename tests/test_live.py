@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -161,7 +162,8 @@ def test_run_live_continues_and_records_audio_overflow_when_configured(
     ) -> Iterator[np.ndarray]:
         assert not abort_on_overflow
         assert callable(on_overflow)
-        on_overflow("音声入力の処理が追いつかず、1 block(s) を取り逃がしました。")
+        on_overflow(1)
+        on_overflow(2)
         yield np.zeros(16000, dtype=np.float32)
 
     monkeypatch.setattr("meeting_minutes.live.resolve_input_device", lambda *_args: input_device)
@@ -175,9 +177,11 @@ def test_run_live_continues_and_records_audio_overflow_when_configured(
 
     session_dir = next(tmp_path.glob("*_live_meeting"))
     transcript = (session_dir / "transcript_live.md").read_text(encoding="utf-8")
-    metadata = (session_dir / "metadata.json").read_text(encoding="utf-8")
+    metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
     assert "[00:00:00 - 00:00:01] hello" in transcript
-    assert "1 block(s) を取り逃がしました" in metadata
+    assert metadata["errors"] == [
+        "音声入力の処理が追いつかず、合計 3 block(s) を 2 event(s) で取り逃がしました。"
+    ]
 
 
 def test_run_live_aborts_on_audio_overflow_by_default(
