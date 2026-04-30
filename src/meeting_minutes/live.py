@@ -14,6 +14,7 @@ from meeting_minutes.config import AppConfig
 from meeting_minutes.dedupe import TranscriptDedupe
 from meeting_minutes.devices import resolve_input_device
 from meeting_minutes.errors import MeetingMinutesError
+from meeting_minutes.live_transcription import SpeechTranscriptionRunner
 from meeting_minutes.metadata import build_metadata, write_metadata
 from meeting_minutes.output import (
     append_transcript_segment,
@@ -23,6 +24,7 @@ from meeting_minutes.output import (
 )
 from meeting_minutes.summarize import generate_minutes
 from meeting_minutes.transcribe import TranscriptionSegment, WhisperTranscriber
+from meeting_minutes.vad import SpeechSegmenter
 from meeting_minutes.vocabulary import build_initial_prompt, load_vocabulary
 
 console = Console()
@@ -31,7 +33,7 @@ AUDIO_RECORDING_ERRORS: tuple[type[Exception], ...] = (OSError, ValueError, wave
 
 
 def _segment_elapsed_range(
-    chunk_start_seconds: int,
+    chunk_start_seconds: float,
     segment: TranscriptionSegment,
 ) -> tuple[int, int]:
     start = floor(chunk_start_seconds + segment.start)
@@ -115,7 +117,7 @@ class TranscriptWriter:
         self,
         segments: list[TranscriptionSegment],
         *,
-        chunk_start_seconds: int,
+        chunk_start_seconds: float,
     ) -> None:
         for segment in segments:
             segment_start, segment_elapsed = _segment_elapsed_range(
@@ -141,6 +143,7 @@ class DraftScheduler:
     errors: list[str]
     interval_seconds: int
     next_draft_at: int | None
+    last_draft_transcript_size: int
 
     @classmethod
     def create(
@@ -154,6 +157,7 @@ class DraftScheduler:
     ) -> "DraftScheduler":
         interval_seconds = draft_interval_minutes * 60
         next_draft_at = interval_seconds if interval_seconds > 0 else None
+        transcript_size = cls._transcript_size(transcript_path) or 0
         return cls(
             transcript_path=transcript_path,
             session_dir=session_dir,
@@ -161,12 +165,17 @@ class DraftScheduler:
             errors=errors,
             interval_seconds=interval_seconds,
             next_draft_at=next_draft_at,
+            last_draft_transcript_size=transcript_size,
         )
 
     def maybe_generate(self, elapsed_seconds: int) -> None:
         if self.next_draft_at is None or self.transcript_path is None:
             return
         if elapsed_seconds < self.next_draft_at:
+            return
+        transcript_size = self._transcript_size(self.transcript_path)
+        if transcript_size is not None and transcript_size <= self.last_draft_transcript_size:
+            self.next_draft_at += self.interval_seconds
             return
 
         try:
@@ -179,7 +188,19 @@ class DraftScheduler:
         except (MeetingMinutesError, OSError, UnicodeError) as exc:
             logger.exception("Draft generation failed")
             self.errors.append(f"draft generation failed: {exc}")
+        else:
+            if transcript_size is not None:
+                self.last_draft_transcript_size = transcript_size
         self.next_draft_at += self.interval_seconds
+
+    @staticmethod
+    def _transcript_size(transcript_path: Path | None) -> int | None:
+        if transcript_path is None:
+            return None
+        try:
+            return transcript_path.stat().st_size
+        except OSError:
+            return None
 
 
 def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
@@ -207,7 +228,14 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
         console.print(f"[green]Vocabulary hint:[/green] {len(initial_prompt)} chars")
     transcriber = WhisperTranscriber(config.transcription, initial_prompt=initial_prompt)
     dedupe = TranscriptDedupe()
+    speech_segmenter = SpeechSegmenter(config.vad, sample_rate=config.audio.sample_rate)
     transcript_writer = TranscriptWriter(transcript_path)
+    transcription_runner = SpeechTranscriptionRunner(
+        speech_segmenter=speech_segmenter,
+        transcriber=transcriber,
+        dedupe=dedupe,
+        segment_writer=transcript_writer,
+    )
     overflow_recorder = AudioOverflowRecorder(errors)
     draft_scheduler = DraftScheduler.create(
         draft_interval_minutes=draft_interval_minutes,
@@ -217,6 +245,8 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
         errors=errors,
     )
     elapsed_seconds = 0
+    if config.vad.enabled:
+        console.print("[green]VAD:[/green] enabled")
 
     try:
         audio_recording = AudioRecording.open(
@@ -233,19 +263,15 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
             abort_on_overflow=config.audio.abort_on_overflow,
             on_overflow=overflow_recorder.record,
         ):
-            chunk_start_seconds = elapsed_seconds
             elapsed_seconds += config.audio.chunk_seconds
             audio_recording.write(chunk, errors)
-            segments = transcriber.transcribe_segments(chunk)
-            text = " ".join(segment.text for segment in segments).strip()
-            if not dedupe.should_keep(text):
-                continue
-            transcript_writer.write_segments(
-                segments,
-                chunk_start_seconds=chunk_start_seconds,
-            )
+            transcription_runner.process(chunk)
+            draft_scheduler.maybe_generate(elapsed_seconds)
+        if transcription_runner.flush():
             draft_scheduler.maybe_generate(elapsed_seconds)
     except KeyboardInterrupt:
+        if transcription_runner.flush():
+            draft_scheduler.maybe_generate(elapsed_seconds)
         console.print("\n[yellow]Stopping...[/yellow]")
     except Exception as exc:
         logger.exception("Live session aborted")

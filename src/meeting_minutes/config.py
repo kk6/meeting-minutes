@@ -1,6 +1,7 @@
 from pathlib import Path
+from typing import Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +12,29 @@ class AudioConfig(BaseModel):
     channels: int = 1
     chunk_seconds: int = Field(default=8, ge=1)
     abort_on_overflow: bool = True
+
+
+class VadConfig(BaseModel):
+    enabled: bool = True
+    frame_ms: int = Field(default=30, ge=10)
+    speech_threshold: float = Field(default=0.01, gt=0)
+    silence_seconds: float = Field(default=0.8, ge=0)
+    min_speech_seconds: float = Field(default=0.3, ge=0)
+    max_speech_seconds: float = Field(default=15.0, gt=0)
+    padding_seconds: float = Field(default=0.2, ge=0)
+
+    @model_validator(mode="after")
+    def validate_durations(self) -> Self:
+        frame_seconds = self.frame_ms / 1000
+        if self.min_speech_seconds > self.max_speech_seconds:
+            raise ValueError(
+                "vad.min_speech_seconds must be less than or equal to max_speech_seconds"
+            )
+        if frame_seconds > self.max_speech_seconds:
+            raise ValueError(
+                "vad.frame_ms converted to seconds must be less than or equal to max_speech_seconds"
+            )
+        return self
 
 
 class TranscriptionConfig(BaseModel):
@@ -54,6 +78,7 @@ class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="MEETING_MINUTES_", env_nested_delimiter="__")
 
     audio: AudioConfig = Field(default_factory=AudioConfig)
+    vad: VadConfig = Field(default_factory=VadConfig)
     transcription: TranscriptionConfig = Field(default_factory=TranscriptionConfig)
     summarization: SummarizationConfig = Field(default_factory=SummarizationConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
@@ -77,6 +102,7 @@ def load_config(path: Path | None) -> AppConfig:
 def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfig:
     allowed_sections = {
         "audio",
+        "vad",
         "transcription",
         "summarization",
         "output",

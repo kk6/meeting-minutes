@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from meeting_minutes.config import apply_overrides, load_config
+from meeting_minutes.config import VadConfig, apply_overrides, load_config
 
 
 def test_load_config_from_toml(tmp_path: Path) -> None:
@@ -63,3 +63,13 @@ def test_apply_overrides_updates_multiple_sections() -> None:
 def test_apply_overrides_raises_for_unknown_section() -> None:
     with pytest.raises(ValueError, match="Unsupported override section 'unknown'"):
         apply_overrides(load_config(None), {"unknown.value": "ignored"})
+
+
+def test_vad_config_rejects_min_speech_longer_than_max() -> None:
+    with pytest.raises(ValueError, match="min_speech_seconds"):
+        VadConfig(min_speech_seconds=10, max_speech_seconds=3)
+
+
+def test_vad_config_rejects_frame_longer_than_max() -> None:
+    with pytest.raises(ValueError, match="frame_ms"):
+        VadConfig(frame_ms=500, max_speech_seconds=0.1)

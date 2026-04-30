@@ -110,6 +110,7 @@ def live(
     config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
     no_save: Annotated[bool, typer.Option("--no-save")] = False,
     no_save_audio: Annotated[bool, typer.Option("--no-save-audio")] = False,
+    no_vad: Annotated[bool, typer.Option("--no-vad", help="VADによる発話単位分割を無効化")] = False,
     continue_on_overflow: Annotated[
         bool,
         typer.Option("--continue-on-overflow", help="音声取り逃がし時も記録して続行する"),
@@ -139,6 +140,7 @@ def live(
             "summarization.ollama_model": ollama_model,
             "output.save_transcript": _disabled_when(no_save),
             "output.save_audio": _disabled_when(no_save_audio),
+            "vad.enabled": _disabled_when(no_vad),
             "audio.abort_on_overflow": _overflow_abort_setting(
                 continue_on_overflow,
                 abort_on_overflow,
