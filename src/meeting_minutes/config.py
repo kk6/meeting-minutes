@@ -31,7 +31,9 @@ class VadConfig(BaseModel):
                 "vad.min_speech_seconds must be less than or equal to max_speech_seconds"
             )
         if frame_seconds > self.max_speech_seconds:
-            raise ValueError("vad.frame_ms must be less than or equal to max_speech_seconds")
+            raise ValueError(
+                "vad.frame_ms converted to seconds must be less than or equal to max_speech_seconds"
+            )
         return self
 
 

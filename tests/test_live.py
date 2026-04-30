@@ -8,7 +8,7 @@ import pytest
 from meeting_minutes.audio_stream import AudioOverflowError
 from meeting_minutes.config import AppConfig, AudioConfig, OutputConfig
 from meeting_minutes.devices import InputDevice
-from meeting_minutes.live import _segment_elapsed_range, run_live
+from meeting_minutes.live import DraftScheduler, _segment_elapsed_range, run_live
 from meeting_minutes.transcribe import TranscriptionSegment
 
 
@@ -64,6 +64,39 @@ def test_segment_elapsed_range_encloses_segment_times() -> None:
     segment = TranscriptionSegment(start=0.51, end=1.49, text="hello")
 
     assert _segment_elapsed_range(10, segment) == (10, 12)
+
+
+def test_draft_scheduler_generates_when_transcript_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transcript_path = tmp_path / "transcript_live.md"
+    transcript_path.write_text("# transcript\n", encoding="utf-8")
+    calls: list[Path] = []
+
+    def fake_generate_minutes(
+        transcript_file: Path,
+        _mode: object,
+        _output: object,
+        _config: object,
+    ) -> Path:
+        calls.append(transcript_file)
+        return tmp_path / "minutes_draft.md"
+
+    monkeypatch.setattr("meeting_minutes.live.generate_minutes", fake_generate_minutes)
+    scheduler = DraftScheduler.create(
+        draft_interval_minutes=1,
+        transcript_path=transcript_path,
+        session_dir=tmp_path,
+        config=live_config(tmp_path),
+        errors=[],
+    )
+
+    transcript_path.write_text("# transcript\nhello\n", encoding="utf-8")
+    scheduler.maybe_generate(60)
+    scheduler.maybe_generate(120)
+
+    assert calls == [transcript_path]
 
 
 def test_run_live_writes_audio_and_transcript(

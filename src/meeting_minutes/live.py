@@ -143,6 +143,7 @@ class DraftScheduler:
     errors: list[str]
     interval_seconds: int
     next_draft_at: int | None
+    last_draft_transcript_size: int
 
     @classmethod
     def create(
@@ -156,6 +157,7 @@ class DraftScheduler:
     ) -> "DraftScheduler":
         interval_seconds = draft_interval_minutes * 60
         next_draft_at = interval_seconds if interval_seconds > 0 else None
+        transcript_size = cls._transcript_size(transcript_path) or 0
         return cls(
             transcript_path=transcript_path,
             session_dir=session_dir,
@@ -163,12 +165,17 @@ class DraftScheduler:
             errors=errors,
             interval_seconds=interval_seconds,
             next_draft_at=next_draft_at,
+            last_draft_transcript_size=transcript_size,
         )
 
     def maybe_generate(self, elapsed_seconds: int) -> None:
         if self.next_draft_at is None or self.transcript_path is None:
             return
         if elapsed_seconds < self.next_draft_at:
+            return
+        transcript_size = self._transcript_size(self.transcript_path)
+        if transcript_size is not None and transcript_size <= self.last_draft_transcript_size:
+            self.next_draft_at += self.interval_seconds
             return
 
         try:
@@ -181,7 +188,19 @@ class DraftScheduler:
         except (MeetingMinutesError, OSError, UnicodeError) as exc:
             logger.exception("Draft generation failed")
             self.errors.append(f"draft generation failed: {exc}")
+        else:
+            if transcript_size is not None:
+                self.last_draft_transcript_size = transcript_size
         self.next_draft_at += self.interval_seconds
+
+    @staticmethod
+    def _transcript_size(transcript_path: Path | None) -> int | None:
+        if transcript_path is None:
+            return None
+        try:
+            return transcript_path.stat().st_size
+        except OSError:
+            return None
 
 
 def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
@@ -246,8 +265,8 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
         ):
             elapsed_seconds += config.audio.chunk_seconds
             audio_recording.write(chunk, errors)
-            if transcription_runner.process(chunk):
-                draft_scheduler.maybe_generate(elapsed_seconds)
+            transcription_runner.process(chunk)
+            draft_scheduler.maybe_generate(elapsed_seconds)
         if transcription_runner.flush():
             draft_scheduler.maybe_generate(elapsed_seconds)
     except KeyboardInterrupt:
