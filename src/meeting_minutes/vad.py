@@ -11,7 +11,7 @@ from meeting_minutes.config import VadConfig
 
 @dataclass(frozen=True)
 class SpeechSegment:
-    """発話区間として切り出された音声と、そのチャンク先頭からの時刻範囲。"""
+    """発話区間として切り出された音声と、ストリーム開始からの時刻範囲。"""
 
     audio: np.ndarray
     start_seconds: float

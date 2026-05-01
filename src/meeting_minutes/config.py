@@ -159,6 +159,7 @@ def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfi
 
     Raises:
         ValueError: キー形式が不正、または未知のセクションが指定された場合。
+        pydantic.ValidationError: 上書き値が型・制約に合わない場合（再検証時）。
     """
     allowed_sections = {
         "audio",
