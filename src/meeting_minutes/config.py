@@ -37,11 +37,33 @@ class VadConfig(BaseModel):
         return self
 
 
+class PreprocessingConfig(BaseModel):
+    enabled: bool = False
+    normalize_peak: bool = True
+    target_peak: float = Field(default=0.8, gt=0, le=1.0)
+    noise_gate_enabled: bool = False
+    noise_gate_threshold: float = Field(default=0.003, ge=0)
+
+
 class TranscriptionConfig(BaseModel):
     whisper_model: str = "small"
     language: str = "ja"
     device: str = "cpu"
     compute_type: str = "int8"
+
+
+class TranscriptFilterConfig(BaseModel):
+    enabled: bool = True
+    canned_false_positives: list[str] = Field(
+        default_factory=lambda: [
+            "Thank you.",
+            "Thanks for watching.",
+            "Bye.",
+        ],
+    )
+    min_text_chars: int = Field(default=0, ge=0)
+    max_repeat_pattern_chars: int = Field(default=8, ge=1)
+    min_repeat_count: int = Field(default=4, ge=2)
 
 
 class SummarizationConfig(BaseModel):
@@ -69,6 +91,8 @@ class VocabularyConfig(BaseModel):
     # Whisper の initial_prompt は約 224 token が上限。日本語では 1 文字 ≒ 1〜2 token のため、
     # 200 文字を安全側のデフォルトとする。
     max_prompt_chars: int = Field(default=200, ge=0)
+    dynamic_context_enabled: bool = False
+    dynamic_context_chars: int = Field(default=120, ge=0)
     # 要約プロンプトへの語彙注入上限。Ollama の num_ctx を圧迫しないよう項目単位で切り落とす。
     # 0 で語彙セクションを無効化する。
     max_summary_chars: int = Field(default=1000, ge=0)
@@ -79,7 +103,9 @@ class AppConfig(BaseSettings):
 
     audio: AudioConfig = Field(default_factory=AudioConfig)
     vad: VadConfig = Field(default_factory=VadConfig)
+    preprocessing: PreprocessingConfig = Field(default_factory=PreprocessingConfig)
     transcription: TranscriptionConfig = Field(default_factory=TranscriptionConfig)
+    transcript_filter: TranscriptFilterConfig = Field(default_factory=TranscriptFilterConfig)
     summarization: SummarizationConfig = Field(default_factory=SummarizationConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
@@ -103,7 +129,9 @@ def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfi
     allowed_sections = {
         "audio",
         "vad",
+        "preprocessing",
         "transcription",
+        "transcript_filter",
         "summarization",
         "output",
         "chunking",

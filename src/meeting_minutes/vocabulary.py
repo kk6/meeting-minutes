@@ -67,6 +67,77 @@ def build_initial_prompt(vocab: Vocabulary, *, max_chars: int) -> str | None:
     return ""
 
 
+def build_contextual_initial_prompt(
+    vocab: Vocabulary,
+    *,
+    recent_context: str,
+    max_chars: int,
+    recent_context_chars: int,
+) -> str | None:
+    static_prompt = build_initial_prompt(vocab, max_chars=max_chars) or ""
+    if max_chars <= 0:
+        return None
+    recent = _truncate_recent_context(recent_context, max_chars=recent_context_chars)
+    if not recent:
+        return static_prompt or None
+
+    if not static_prompt:
+        return _build_recent_context_section(recent, max_chars=max_chars)
+
+    remaining = max_chars - len(static_prompt) - 1
+    if remaining <= 0:
+        return static_prompt
+    context_section = _build_recent_context_section(recent, max_chars=remaining)
+    if not context_section:
+        return static_prompt
+    return f"{static_prompt} {context_section}"
+
+
+class RecentTranscriptContext:
+    def __init__(self, *, max_chars: int) -> None:
+        self._max_chars = max_chars
+        self._text = ""
+
+    @property
+    def text(self) -> str:
+        return self._text
+
+    def append(self, text: str) -> None:
+        if self._max_chars <= 0:
+            return
+        normalized = " ".join(text.split())
+        if not normalized:
+            return
+        self._text = _truncate_recent_context(
+            f"{self._text} {normalized}".strip(),
+            max_chars=self._max_chars,
+        )
+
+
+def _truncate_recent_context(text: str, *, max_chars: int) -> str:
+    normalized = " ".join(text.split())
+    if max_chars <= 0 or not normalized:
+        return ""
+    if len(normalized) <= max_chars:
+        return normalized
+    candidate = normalized[-max_chars:]
+    first_space = candidate.find(" ")
+    if first_space >= 0:
+        return candidate[first_space + 1 :]
+    return candidate
+
+
+def _build_recent_context_section(recent_context: str, *, max_chars: int) -> str:
+    label = "直近の文字起こし: "
+    if max_chars <= len(label):
+        return ""
+    recent = _truncate_recent_context(
+        recent_context,
+        max_chars=max_chars - len(label),
+    )
+    return f"{label}{recent}" if recent else ""
+
+
 def build_summary_section(vocab: Vocabulary, *, max_chars: int = 0) -> str:
     """要約プロンプトに差し込む参加者・用語セクションを生成する。
 

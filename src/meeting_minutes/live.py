@@ -22,10 +22,18 @@ from meeting_minutes.output import (
     format_elapsed,
     init_transcript,
 )
+from meeting_minutes.preprocess import AudioPreprocessor
 from meeting_minutes.summarize import generate_minutes
 from meeting_minutes.transcribe import TranscriptionSegment, WhisperTranscriber
+from meeting_minutes.transcript_filter import TranscriptFilter, TranscriptFilterStats
 from meeting_minutes.vad import SpeechSegmenter
-from meeting_minutes.vocabulary import build_initial_prompt, load_vocabulary
+from meeting_minutes.vocabulary import (
+    RecentTranscriptContext,
+    Vocabulary,
+    build_contextual_initial_prompt,
+    build_initial_prompt,
+    load_vocabulary,
+)
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -107,6 +115,25 @@ class AudioOverflowRecorder:
         if self.events == 1 or self.events % 10 == 0:
             logger.warning(message)
             console.print(f"[yellow]{message} 続行します。[/yellow]")
+
+
+@dataclass
+class DynamicPromptContext:
+    vocabulary: Vocabulary
+    max_prompt_chars: int
+    recent_context_chars: int
+    recent_context: RecentTranscriptContext
+
+    def build(self) -> str | None:
+        return build_contextual_initial_prompt(
+            self.vocabulary,
+            recent_context=self.recent_context.text,
+            max_chars=self.max_prompt_chars,
+            recent_context_chars=self.recent_context_chars,
+        )
+
+    def append(self, text: str) -> None:
+        self.recent_context.append(text)
 
 
 @dataclass
@@ -227,15 +254,32 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
     if initial_prompt:
         console.print(f"[green]Vocabulary hint:[/green] {len(initial_prompt)} chars")
     transcriber = WhisperTranscriber(config.transcription, initial_prompt=initial_prompt)
-    dedupe = TranscriptDedupe()
+    filter_stats = TranscriptFilterStats()
+    transcript_filter = TranscriptFilter(config.transcript_filter, stats=filter_stats)
+    dedupe = TranscriptDedupe(stats=filter_stats)
     speech_segmenter = SpeechSegmenter(config.vad, sample_rate=config.audio.sample_rate)
+    prompt_context = (
+        DynamicPromptContext(
+            vocabulary=vocabulary,
+            max_prompt_chars=config.vocabulary.max_prompt_chars,
+            recent_context_chars=config.vocabulary.dynamic_context_chars,
+            recent_context=RecentTranscriptContext(
+                max_chars=config.vocabulary.dynamic_context_chars,
+            ),
+        )
+        if config.vocabulary.dynamic_context_enabled
+        else None
+    )
     transcript_writer = TranscriptWriter(transcript_path)
     transcription_runner = SpeechTranscriptionRunner(
         speech_segmenter=speech_segmenter,
         transcriber=transcriber,
         dedupe=dedupe,
+        transcript_filter=transcript_filter,
         segment_writer=transcript_writer,
+        prompt_context=prompt_context,
     )
+    audio_preprocessor = AudioPreprocessor(config.preprocessing)
     overflow_recorder = AudioOverflowRecorder(errors)
     draft_scheduler = DraftScheduler.create(
         draft_interval_minutes=draft_interval_minutes,
@@ -265,7 +309,7 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
         ):
             elapsed_seconds += config.audio.chunk_seconds
             audio_recording.write(chunk, errors)
-            transcription_runner.process(chunk)
+            transcription_runner.process(audio_preprocessor.process(chunk))
             draft_scheduler.maybe_generate(elapsed_seconds)
         if transcription_runner.flush():
             draft_scheduler.maybe_generate(elapsed_seconds)
@@ -288,6 +332,7 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
             transcript_path=transcript_path,
             audio_path=audio_recording.path,
             errors=errors,
+            transcript_filter=filter_stats.as_dict(),
         )
         write_metadata(session_dir / "metadata.json", metadata)
         console.print(f"[green]Metadata saved:[/green] {session_dir / 'metadata.json'}")

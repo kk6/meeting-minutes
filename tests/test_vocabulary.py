@@ -2,7 +2,9 @@ from pathlib import Path
 
 from meeting_minutes.config import VocabularyConfig
 from meeting_minutes.vocabulary import (
+    RecentTranscriptContext,
     Vocabulary,
+    build_contextual_initial_prompt,
     build_initial_prompt,
     build_summary_section,
     load_vocabulary,
@@ -79,6 +81,39 @@ def test_build_initial_prompt_returns_none_when_max_chars_zero() -> None:
     vocab = Vocabulary(participants=["田中"])
 
     assert build_initial_prompt(vocab, max_chars=0) is None
+
+
+def test_build_contextual_initial_prompt_combines_static_and_recent_context() -> None:
+    vocab = Vocabulary(participants=["田中"], glossary=["ABC"])
+
+    prompt = build_contextual_initial_prompt(
+        vocab,
+        recent_context="今日は ABC の設計を確認します",
+        max_chars=80,
+        recent_context_chars=20,
+    )
+
+    assert prompt == "参加者: 田中 用語: ABC 直近の文字起こし: 今日は ABC の設計を確認します"
+
+
+def test_build_contextual_initial_prompt_preserves_recent_context_label_when_truncated() -> None:
+    prompt = build_contextual_initial_prompt(
+        Vocabulary(),
+        recent_context="first second third fourth",
+        max_chars=20,
+        recent_context_chars=100,
+    )
+
+    assert prompt == "直近の文字起こし: fourth"
+
+
+def test_recent_transcript_context_keeps_recent_tail() -> None:
+    context = RecentTranscriptContext(max_chars=10)
+
+    context.append("first phrase")
+    context.append("second phrase")
+
+    assert context.text == "phrase"
 
 
 def test_build_summary_section_returns_empty_for_empty_vocab() -> None:

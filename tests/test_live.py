@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from meeting_minutes.audio_stream import AudioOverflowError
-from meeting_minutes.config import AppConfig, AudioConfig, OutputConfig
+from meeting_minutes.config import AppConfig, AudioConfig, OutputConfig, PreprocessingConfig
 from meeting_minutes.devices import InputDevice
 from meeting_minutes.live import DraftScheduler, _segment_elapsed_range, run_live
 from meeting_minutes.transcribe import TranscriptionSegment
@@ -37,7 +37,12 @@ def fake_transcriber(monkeypatch: pytest.MonkeyPatch) -> None:
         def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
             pass
 
-        def transcribe_segments(self, _chunk: np.ndarray) -> list[TranscriptionSegment]:
+        def transcribe_segments(
+            self,
+            _chunk: np.ndarray,
+            *,
+            initial_prompt: str | None = None,
+        ) -> list[TranscriptionSegment]:
             return [TranscriptionSegment(start=0.1, end=0.9, text="hello")]
 
     monkeypatch.setattr("meeting_minutes.live.WhisperTranscriber", FakeTranscriber)
@@ -109,6 +114,44 @@ def test_run_live_writes_audio_and_transcript(
     audio_path = next(tmp_path.glob("*/audio_live.wav"))
     assert "[00:00:00 - 00:00:01] hello" in transcript
     assert audio_path.stat().st_size > 44
+
+
+def test_run_live_applies_preprocessing_before_transcription(
+    tmp_path: Path,
+    input_device: InputDevice,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_peaks: list[float] = []
+
+    def fake_audio_chunks(**_kwargs: object) -> Iterator[np.ndarray]:
+        yield np.full(16000, 0.1, dtype=np.float32)
+
+    class FakeTranscriber:
+        def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
+            pass
+
+        def transcribe_segments(
+            self,
+            chunk: np.ndarray,
+            *,
+            initial_prompt: str | None = None,
+        ) -> list[TranscriptionSegment]:
+            captured_peaks.append(float(np.max(np.abs(chunk))))
+            return [TranscriptionSegment(start=0.1, end=0.9, text="hello")]
+
+    monkeypatch.setattr("meeting_minutes.live.resolve_input_device", lambda *_args: input_device)
+    monkeypatch.setattr("meeting_minutes.live.audio_chunks", fake_audio_chunks)
+    monkeypatch.setattr("meeting_minutes.live.WhisperTranscriber", FakeTranscriber)
+
+    config = AppConfig(
+        audio=AudioConfig(chunk_seconds=1),
+        output=OutputConfig(base_dir=tmp_path),
+        preprocessing=PreprocessingConfig(enabled=True, target_peak=0.5),
+    )
+
+    run_live(config)
+
+    assert captured_peaks == [pytest.approx(0.5)]
 
 
 def test_run_live_continues_when_audio_writer_cannot_open(

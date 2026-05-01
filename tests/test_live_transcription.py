@@ -1,15 +1,46 @@
 import numpy as np
 
-from meeting_minutes.config import VadConfig
+from meeting_minutes.config import TranscriptFilterConfig, VadConfig
 from meeting_minutes.dedupe import TranscriptDedupe
 from meeting_minutes.live_transcription import SpeechTranscriptionRunner
 from meeting_minutes.transcribe import TranscriptionSegment
+from meeting_minutes.transcript_filter import TranscriptFilter
 from meeting_minutes.vad import SpeechSegmenter
 
 
 class FakeTranscriber:
-    def transcribe_segments(self, _audio: np.ndarray) -> list[TranscriptionSegment]:
+    def transcribe_segments(
+        self,
+        _audio: np.ndarray,
+        *,
+        initial_prompt: str | None = None,
+    ) -> list[TranscriptionSegment]:
         return [TranscriptionSegment(start=0, end=0.2, text="hello")]
+
+
+class PromptRecordingTranscriber:
+    def __init__(self) -> None:
+        self.prompts: list[str | None] = []
+
+    def transcribe_segments(
+        self,
+        _audio: np.ndarray,
+        *,
+        initial_prompt: str | None = None,
+    ) -> list[TranscriptionSegment]:
+        self.prompts.append(initial_prompt)
+        return [TranscriptionSegment(start=0, end=0.2, text="hello")]
+
+
+class FakePromptContext:
+    def __init__(self) -> None:
+        self.texts: list[str] = []
+
+    def build(self) -> str | None:
+        return "context"
+
+    def append(self, text: str) -> None:
+        self.texts.append(text)
 
 
 class SegmentCollector:
@@ -39,6 +70,7 @@ def test_speech_transcription_runner_writes_detected_speech() -> None:
         ),
         transcriber=FakeTranscriber(),
         dedupe=TranscriptDedupe(),
+        transcript_filter=TranscriptFilter(TranscriptFilterConfig()),
         segment_writer=collector,
     )
 
@@ -61,6 +93,7 @@ def test_speech_transcription_runner_flushes_pending_speech() -> None:
         ),
         transcriber=FakeTranscriber(),
         dedupe=TranscriptDedupe(),
+        transcript_filter=TranscriptFilter(TranscriptFilterConfig()),
         segment_writer=collector,
     )
 
@@ -75,9 +108,45 @@ def test_speech_transcription_runner_passthrough_when_vad_is_disabled() -> None:
         speech_segmenter=SpeechSegmenter(VadConfig(enabled=False), sample_rate=10),
         transcriber=FakeTranscriber(),
         dedupe=TranscriptDedupe(),
+        transcript_filter=TranscriptFilter(TranscriptFilterConfig()),
         segment_writer=collector,
     )
 
     assert runner.process(np.full(2, 0.1, dtype=np.float32))
     assert len(collector.calls) == 1
     assert collector.calls[0][0] == 0
+
+
+def test_speech_transcription_runner_filters_noise() -> None:
+    collector = SegmentCollector()
+    runner = SpeechTranscriptionRunner(
+        speech_segmenter=SpeechSegmenter(VadConfig(enabled=False), sample_rate=10),
+        transcriber=FakeTranscriber(),
+        dedupe=TranscriptDedupe(),
+        transcript_filter=TranscriptFilter(
+            TranscriptFilterConfig(canned_false_positives=["hello"]),
+        ),
+        segment_writer=collector,
+    )
+
+    assert not runner.process(np.full(2, 0.1, dtype=np.float32))
+    assert collector.calls == []
+
+
+def test_speech_transcription_runner_uses_and_updates_prompt_context() -> None:
+    collector = SegmentCollector()
+    transcriber = PromptRecordingTranscriber()
+    prompt_context = FakePromptContext()
+    runner = SpeechTranscriptionRunner(
+        speech_segmenter=SpeechSegmenter(VadConfig(enabled=False), sample_rate=10),
+        transcriber=transcriber,
+        dedupe=TranscriptDedupe(),
+        transcript_filter=TranscriptFilter(TranscriptFilterConfig()),
+        segment_writer=collector,
+        prompt_context=prompt_context,
+    )
+
+    assert runner.process(np.full(2, 0.1, dtype=np.float32))
+
+    assert transcriber.prompts == ["context"]
+    assert prompt_context.texts == ["hello"]
