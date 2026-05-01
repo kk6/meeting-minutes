@@ -45,7 +45,7 @@ def resolve_input_device(device_name: str | None, device_index: int | None) -> I
     """index → 名前 → OS 既定 → 先頭 の優先順位で入力デバイスを解決する。
 
     Raises:
-        DeviceNotFoundError: 一致するデバイスがなく、フォールバックも空の場合。
+        DeviceNotFoundError: 指定の index/name が見つからない、または利用可能なデバイスが無い場合。
     """
     devices = list_input_devices()
     if device_index is not None:

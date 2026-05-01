@@ -140,8 +140,7 @@ class AppConfig(BaseSettings):
 def load_config(path: Path | None) -> AppConfig:
     """TOML から `AppConfig` を構築する。`path` が None なら環境変数と既定値のみで構築。
 
-    Raises:
-        FileNotFoundError: `path` が指定されたが存在しない場合。
+    `path` の不在・読み込み失敗・パース失敗・バリデーション失敗時は対応する例外を送出する。
     """
     if path is None:
         return AppConfig()
