@@ -100,7 +100,7 @@ def build_contextual_initial_prompt(
 
 
 class RecentTranscriptContext:
-    """直近の文字起こしを `max_chars` 文字以内のリングバッファ的に保持する。"""
+    """直近の文字起こしを `max_chars` 文字以内で保持する。"""
 
     def __init__(self, *, max_chars: int) -> None:
         self._max_chars = max_chars

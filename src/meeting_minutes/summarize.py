@@ -99,9 +99,7 @@ def generate_minutes(
     """文字起こしファイルから議事録 Markdown を生成し、書き出したパスを返す。
 
     `output` が None の場合、最初の文字起こしファイルと同じディレクトリに既定名で保存する。
-
-    Raises:
-        MeetingMinutesError: `transcript_file` が空、または Ollama 呼び出しが失敗した場合。
+    入力不正や Ollama 失敗時は `MeetingMinutesError` 系の例外を送出する。
     """
     transcript_files = (
         [transcript_file] if isinstance(transcript_file, Path) else list(transcript_file)
