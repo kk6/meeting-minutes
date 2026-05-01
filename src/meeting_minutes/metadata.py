@@ -20,6 +20,7 @@ class SessionMetadata(BaseModel):
     language: str
     transcript_path: Path | None
     audio_path: Path | None
+    transcript_rejections: dict[str, int | dict[str, int]]
     errors: list[str]
     processing_seconds: float | None = None
 
@@ -33,6 +34,7 @@ def build_metadata(
     transcript_path: Path | None,
     audio_path: Path | None,
     errors: list[str],
+    transcript_rejections: dict[str, int | dict[str, int]] | None = None,
 ) -> SessionMetadata:
     processing_seconds = (ended_at - started_at).total_seconds() if ended_at else None
     return SessionMetadata(
@@ -47,6 +49,7 @@ def build_metadata(
         language=config.transcription.language,
         transcript_path=transcript_path,
         audio_path=audio_path,
+        transcript_rejections=transcript_rejections or {"total": 0, "by_reason": {}},
         errors=errors,
         processing_seconds=processing_seconds,
     )

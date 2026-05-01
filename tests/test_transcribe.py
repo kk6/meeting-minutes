@@ -68,3 +68,18 @@ def test_transcribe_segments_passes_initial_prompt() -> None:
     transcriber.transcribe_segments(np.zeros(16000, dtype=np.float32))
 
     assert fake_model.last_kwargs["initial_prompt"] == "参加者: 田中"
+
+
+def test_transcribe_segments_accepts_per_call_initial_prompt() -> None:
+    fake_model = FakeWhisperModel()
+    transcriber = WhisperTranscriber.__new__(WhisperTranscriber)
+    transcriber._model = fake_model
+    transcriber._language = "ja"
+    transcriber._initial_prompt = "参加者: 田中"
+
+    transcriber.transcribe_segments(
+        np.zeros(16000, dtype=np.float32),
+        initial_prompt="参加者: 鈴木",
+    )
+
+    assert fake_model.last_kwargs["initial_prompt"] == "参加者: 鈴木"

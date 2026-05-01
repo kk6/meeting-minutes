@@ -33,17 +33,29 @@ class WhisperTranscriber:
         self._language = config.language
         self._initial_prompt = initial_prompt or None
 
-    def transcribe(self, audio: np.ndarray) -> str:
-        return " ".join(segment.text for segment in self.transcribe_segments(audio)).strip()
+    def transcribe(self, audio: np.ndarray, *, initial_prompt: str | None = None) -> str:
+        return " ".join(
+            segment.text
+            for segment in self.transcribe_segments(
+                audio,
+                initial_prompt=initial_prompt,
+            )
+        ).strip()
 
-    def transcribe_segments(self, audio: np.ndarray) -> list[TranscriptionSegment]:
+    def transcribe_segments(
+        self,
+        audio: np.ndarray,
+        *,
+        initial_prompt: str | None = None,
+    ) -> list[TranscriptionSegment]:
+        prompt = initial_prompt if initial_prompt is not None else self._initial_prompt
         try:
             segments, _info = self._model.transcribe(
                 audio,
                 language=self._language,
                 vad_filter=True,
                 beam_size=1,
-                initial_prompt=self._initial_prompt,
+                initial_prompt=prompt,
             )
             results = [
                 TranscriptionSegment(
