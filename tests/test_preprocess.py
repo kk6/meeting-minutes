@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from meeting_minutes.config import PreprocessingConfig
 from meeting_minutes.preprocess import AudioPreprocessor
@@ -20,7 +21,7 @@ def test_preprocessor_normalizes_peak_upward() -> None:
     ).process(audio)
 
     assert processed.dtype == np.float32
-    assert np.max(np.abs(processed)) == np.float32(0.8)
+    assert float(np.max(np.abs(processed))) == pytest.approx(0.8)
 
 
 def test_preprocessor_normalizes_peak_downward() -> None:
@@ -31,7 +32,7 @@ def test_preprocessor_normalizes_peak_downward() -> None:
     ).process(audio)
 
     assert processed.dtype == np.float32
-    assert np.max(np.abs(processed)) == np.float32(0.8)
+    assert float(np.max(np.abs(processed))) == pytest.approx(0.8)
 
 
 def test_preprocessor_does_not_amplify_silence() -> None:
