@@ -1,3 +1,5 @@
+"""Ollama の `/api/generate` エンドポイントへの薄い同期クライアント。"""
+
 from types import TracebackType
 
 import httpx
@@ -7,6 +9,11 @@ from meeting_minutes.errors import OllamaError
 
 
 class OllamaClient:
+    """Ollama の non-streaming 補完 API を呼び出すコンテキストマネージャ。
+
+    `httpx.Client` を遅延生成し、`with` ブロック終了時に確実に解放する。
+    """
+
     def __init__(self, config: SummarizationConfig) -> None:
         self._config = config
         self._generate_url = f"{config.ollama_base_url.rstrip('/')}/api/generate"

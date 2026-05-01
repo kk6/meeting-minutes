@@ -1,3 +1,5 @@
+"""文字起こしから議事録 Markdown を生成するパイプライン。"""
+
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
@@ -12,6 +14,7 @@ MinutesMode = Literal["draft", "final"]
 
 
 def split_text(text: str, *, chunk_size: int, chunk_overlap: int) -> list[str]:
+    """`text` を重なり付きで分割する。"""
     if len(text) <= chunk_size:
         return [text]
     chunks: list[str] = []
@@ -93,6 +96,12 @@ def generate_minutes(
     output: Path | None,
     config: AppConfig,
 ) -> Path:
+    """文字起こしファイルから議事録 Markdown を生成し、書き出したパスを返す。
+
+    `output` が None の場合、最初の文字起こしファイルと同じディレクトリに既定名で保存する。
+    入力ファイルの読み込み失敗（`OSError` / `UnicodeError`）や、`MeetingMinutesError`
+    系（入力不正、Ollama 失敗）の例外を送出する。
+    """
     transcript_files = (
         [transcript_file] if isinstance(transcript_file, Path) else list(transcript_file)
     )

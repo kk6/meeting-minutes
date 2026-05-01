@@ -1,3 +1,5 @@
+"""`meeting-minutes` コマンドのエントリポイントを定義する Typer アプリ。"""
+
 from pathlib import Path
 from typing import Annotated
 

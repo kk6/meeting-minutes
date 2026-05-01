@@ -1,3 +1,5 @@
+"""RMS ベースの簡易 VAD で音声チャンクを発話区間に分割する。"""
+
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from math import ceil
@@ -9,12 +11,16 @@ from meeting_minutes.config import VadConfig
 
 @dataclass(frozen=True)
 class SpeechSegment:
+    """発話区間として切り出された音声と、ストリーム開始からの時刻範囲。"""
+
     audio: np.ndarray
     start_seconds: float
     end_seconds: float
 
 
 class SpeechSegmenter:
+    """RMS 閾値で発話区間を切り出すストリーミング VAD。"""
+
     def __init__(self, config: VadConfig, *, sample_rate: int) -> None:
         self._config = config
         self._sample_rate = sample_rate

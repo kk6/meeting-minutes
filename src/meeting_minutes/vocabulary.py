@@ -1,3 +1,5 @@
+"""参加者・用語ファイルから語彙を読み込み、Whisper / 要約プロンプトへ注入する。"""
+
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class Vocabulary:
+    """参加者名と用語の集合。プロンプト生成の入力として使う。"""
+
     participants: list[str] = field(default_factory=list)
     glossary: list[str] = field(default_factory=list)
 
@@ -39,6 +43,7 @@ def _read_terms(path: Path | None) -> list[str]:
 
 
 def load_vocabulary(config: VocabularyConfig) -> Vocabulary:
+    """設定で指定された参加者・用語ファイルを読み込んで `Vocabulary` を返す。"""
     return Vocabulary(
         participants=_read_terms(config.participants_file),
         glossary=_read_terms(config.glossary_file),
@@ -74,6 +79,7 @@ def build_contextual_initial_prompt(
     max_chars: int,
     recent_context_chars: int,
 ) -> str | None:
+    """語彙ヒントと直近の文字起こし文脈を結合した initial_prompt を返す。"""
     static_prompt = build_initial_prompt(vocab, max_chars=max_chars) or ""
     if max_chars <= 0:
         return None
@@ -94,6 +100,8 @@ def build_contextual_initial_prompt(
 
 
 class RecentTranscriptContext:
+    """直近の文字起こしを `max_chars` 文字以内で保持する。"""
+
     def __init__(self, *, max_chars: int) -> None:
         self._max_chars = max_chars
         self._text = ""

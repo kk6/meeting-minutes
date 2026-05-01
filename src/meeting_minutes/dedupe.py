@@ -1,3 +1,5 @@
+"""連続するチャンク間で重複・近似の文字起こしを除去する。"""
+
 from collections import deque
 from difflib import SequenceMatcher
 
@@ -5,6 +7,8 @@ from meeting_minutes.transcript_filter import TranscriptRejectionStats, normaliz
 
 
 class TranscriptDedupe:
+    """直近履歴との完全一致と直前テキストとの類似度で重複を弾く。"""
+
     def __init__(
         self,
         similarity_threshold: float = 0.92,

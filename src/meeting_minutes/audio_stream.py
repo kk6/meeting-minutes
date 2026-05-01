@@ -1,3 +1,5 @@
+"""マイク入力をチャンク単位の numpy 配列として供給するストリーミング層。"""
+
 from collections.abc import Callable, Iterator
 from queue import Full, Queue
 from threading import Lock
@@ -21,6 +23,11 @@ def audio_chunks(
     abort_on_overflow: bool = True,
     on_overflow: Callable[[int], None] | None = None,
 ) -> Iterator[np.ndarray]:
+    """マイク入力をモノラル float32 のチャンクとして逐次 yield する。
+
+    Raises:
+        AudioOverflowError: `abort_on_overflow=True` で取り逃がしを検知した場合。
+    """
     frames_per_chunk = sample_rate * chunk_seconds
     block_frames = max(sample_rate // 2, 1)
     queue: Queue[np.ndarray] = Queue(maxsize=240)  # 120 seconds at the current ~0.5s block size.
