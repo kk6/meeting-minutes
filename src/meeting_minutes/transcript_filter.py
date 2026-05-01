@@ -34,9 +34,9 @@ class TranscriptFilter:
         self._config = config
         self.stats = stats or TranscriptRejectionStats()
         self._false_positives = {
-            normalize_transcript_text(text).casefold()
+            normalized_text.casefold()
             for text in config.canned_false_positives
-            if normalize_transcript_text(text)
+            if (normalized_text := normalize_transcript_text(text))
         }
 
     def should_keep(self, text: str) -> bool:
