@@ -8,14 +8,14 @@ from meeting_minutes.devices import InputDevice
 
 
 def create_session_dir(base_dir: Path, started_at: datetime) -> Path:
-    """`base_dir/<開始時刻>_live_meeting/` を作成して返す。"""
+    """セッション用ディレクトリを作成して返す。"""
     session = base_dir / f"{started_at:%Y-%m-%d_%H%M%S}_live_meeting"
     session.mkdir(parents=True, exist_ok=True)
     return session
 
 
 def format_elapsed(elapsed_seconds: int) -> str:
-    """秒数を `HH:MM:SS` 形式の文字列に整形する。"""
+    """秒数を `HH:MM:SS` 形式に整形する。"""
     return (
         f"{elapsed_seconds // 3600:02d}:"
         f"{elapsed_seconds % 3600 // 60:02d}:"
@@ -29,7 +29,7 @@ def init_transcript(
     input_device: InputDevice,
     started_at: datetime,
 ) -> None:
-    """文字起こしファイルにメタデータヘッダと空の Body セクションを書き込む。"""
+    """文字起こしファイルにヘッダを書き込む。"""
     path.write_text(
         "\n".join(
             [
@@ -57,7 +57,7 @@ def append_transcript_segment(
     end_seconds: int,
     text: str,
 ) -> None:
-    """`[HH:MM:SS - HH:MM:SS] text` 形式の 1 行を文字起こしファイルへ追記する。"""
+    """タイムスタンプ付きで 1 行を追記する。"""
     with path.open("a", encoding="utf-8") as file:
         start_stamp = format_elapsed(start_seconds)
         end_stamp = format_elapsed(end_seconds)

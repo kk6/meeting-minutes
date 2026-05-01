@@ -79,11 +79,7 @@ def build_contextual_initial_prompt(
     max_chars: int,
     recent_context_chars: int,
 ) -> str | None:
-    """語彙ヒントに直近の文字起こし文脈を連結した initial_prompt を生成する。
-
-    語彙パートを優先確保した上で、残り文字数の範囲で「直近の文字起こし: ...」を
-    付加する。`max_chars <= 0` の場合は None を返す。
-    """
+    """語彙ヒントと直近の文字起こし文脈を結合した initial_prompt を返す。"""
     static_prompt = build_initial_prompt(vocab, max_chars=max_chars) or ""
     if max_chars <= 0:
         return None

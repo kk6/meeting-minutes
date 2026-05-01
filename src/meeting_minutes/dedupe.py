@@ -7,12 +7,7 @@ from meeting_minutes.transcript_filter import TranscriptRejectionStats, normaliz
 
 
 class TranscriptDedupe:
-    """直前テキストとの類似度と直近履歴を使った重複判定器。
-
-    Whisper のチャンク境界では同一フレーズが繰り返し出力されやすいため、
-    完全一致集合と直前テキストとの類似比較の両方で重複を弾く。
-    履歴は LRU 的に `max_seen` 件まで保持する。
-    """
+    """直近履歴との完全一致と直前テキストとの類似度で重複を弾く。"""
 
     def __init__(
         self,

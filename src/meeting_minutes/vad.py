@@ -19,11 +19,7 @@ class SpeechSegment:
 
 
 class SpeechSegmenter:
-    """フレーム単位 RMS の閾値判定で発話区間を切り出すストリーミング VAD。
-
-    `process` で逐次チャンクを供給し、無音継続または最大長到達で区間を確定する。
-    pre-roll/post-roll パディングと最小発話長フィルタにより、頭切れ・短すぎる区間を抑制する。
-    """
+    """RMS 閾値で発話区間を切り出すストリーミング VAD。"""
 
     def __init__(self, config: VadConfig, *, sample_rate: int) -> None:
         self._config = config

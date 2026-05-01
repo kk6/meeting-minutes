@@ -138,10 +138,7 @@ class AppConfig(BaseSettings):
 
 
 def load_config(path: Path | None) -> AppConfig:
-    """TOML 設定ファイルを読み込み、`AppConfig` を組み立てて返す。
-
-    Args:
-        path: TOML ファイルのパス。None の場合は環境変数とデフォルトのみで構築する。
+    """TOML から `AppConfig` を構築する。`path` が None なら環境変数と既定値のみで構築。
 
     Raises:
         FileNotFoundError: `path` が指定されたが存在しない場合。
@@ -159,13 +156,10 @@ def load_config(path: Path | None) -> AppConfig:
 
 
 def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfig:
-    """`section.key` 形式の上書き辞書を `config` に適用した新しい `AppConfig` を返す。
-
-    `model_copy(update=...)` はバリデーションをスキップするため、最終的に
-    `model_validate` で再検証して不整合を検出する。
+    """`section.key` 形式の上書きを適用した新しい `AppConfig` を返す。
 
     Raises:
-        ValueError: キー形式が `section.key` でない、または未知のセクションが指定された場合。
+        ValueError: キー形式が不正、または未知のセクションが指定された場合。
     """
     allowed_sections = {
         "audio",

@@ -13,11 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_checks(config: AppConfig) -> list[tuple[str, bool, str]]:
-    """各種依存の疎通結果を `(項目名, 成功フラグ, 詳細メッセージ)` のリストで返す。
-
-    ネットワーク疎通や PortAudio の状態に依存するため、呼び出し時の環境スナップショット
-    を返す副作用なしの関数として設計している。
-    """
+    """各種依存の疎通結果を `(項目名, 成功フラグ, 詳細)` のリストで返す。"""
     results: list[tuple[str, bool, str]] = []
 
     ffmpeg = shutil.which("ffmpeg")

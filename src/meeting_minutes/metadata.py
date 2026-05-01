@@ -40,11 +40,7 @@ def build_metadata(
     errors: list[str],
     transcript_rejections: dict[str, int | dict[str, int]] | None = None,
 ) -> SessionMetadata:
-    """設定・デバイス・実行結果を 1 つの `SessionMetadata` に集約する。
-
-    `ended_at` が None の場合は処理時間も None として保持する（途中終了を区別するため）。
-    タイムスタンプは秒精度に丸め、JSON 化時の冗長な microsecond を抑止する。
-    """
+    """設定・デバイス・実行結果を `SessionMetadata` に集約する。"""
     processing_seconds = (ended_at - started_at).total_seconds() if ended_at else None
     return SessionMetadata(
         started_at=started_at.replace(microsecond=0),
@@ -65,6 +61,6 @@ def build_metadata(
 
 
 def write_metadata(path: Path, metadata: SessionMetadata) -> None:
-    """`metadata` を UTF-8 / インデント付き JSON として `path` へ書き出す。"""
+    """`metadata` を JSON として `path` に書き出す。"""
     data = metadata.model_dump(mode="json")
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")

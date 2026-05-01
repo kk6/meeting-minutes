@@ -20,7 +20,7 @@ class InputDevice:
 
 
 def list_input_devices() -> list[InputDevice]:
-    """入力チャンネル数 1 以上のデバイスのみを抽出して返す。"""
+    """利用可能な入力デバイスを返す。"""
     raw_devices = sd.query_devices()
     devices: list[InputDevice] = []
     for index, device in enumerate(raw_devices):
@@ -42,10 +42,10 @@ def list_input_devices() -> list[InputDevice]:
 
 
 def resolve_input_device(device_name: str | None, device_index: int | None) -> InputDevice:
-    """index → 完全一致名 → 部分一致名 → OS 既定 → 先頭 の優先順位でデバイスを解決する。
+    """index → 名前 → OS 既定 → 先頭 の優先順位で入力デバイスを解決する。
 
     Raises:
-        DeviceNotFoundError: 指定条件に一致するデバイスも、利用可能なデバイスも存在しない場合。
+        DeviceNotFoundError: 一致するデバイスがなく、フォールバックも空の場合。
     """
     devices = list_input_devices()
     if device_index is not None:

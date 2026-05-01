@@ -7,7 +7,7 @@ from meeting_minutes.config import TranscriptFilterConfig
 
 
 def normalize_transcript_text(text: str) -> str:
-    """連続空白を 1 つに畳んだ正規化テキストを返す（重複判定の前段で利用）。"""
+    """連続空白を 1 つに畳んで返す。"""
     return " ".join(text.split())
 
 

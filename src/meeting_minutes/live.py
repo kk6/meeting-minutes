@@ -243,10 +243,9 @@ class DraftScheduler:
 
 
 def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
-    """ライブ録音セッションを起動し、Ctrl+C 終了までループを回す。
+    """ライブ録音セッションを起動する。
 
-    `draft_interval_minutes > 0` の場合、その間隔で議事録ドラフトを生成する。
-    終了時には常に metadata.json を出力する（例外発生時も含む）。
+    `draft_interval_minutes > 0` でその間隔ごとに議事録ドラフトを生成する。
     """
     started_at = datetime.now()
     input_device = resolve_input_device(config.audio.device, config.audio.device_index)
