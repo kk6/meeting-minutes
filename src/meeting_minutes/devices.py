@@ -1,3 +1,5 @@
+"""PortAudio (sounddevice) から入力デバイス一覧を取得し、名前/index で解決する。"""
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -8,6 +10,8 @@ from meeting_minutes.errors import DeviceNotFoundError
 
 @dataclass(frozen=True)
 class InputDevice:
+    """利用可能な音声入力デバイスのメタ情報。"""
+
     index: int
     name: str
     channels: int
@@ -16,6 +20,7 @@ class InputDevice:
 
 
 def list_input_devices() -> list[InputDevice]:
+    """入力チャンネル数 1 以上のデバイスのみを抽出して返す。"""
     raw_devices = sd.query_devices()
     devices: list[InputDevice] = []
     for index, device in enumerate(raw_devices):
@@ -37,6 +42,11 @@ def list_input_devices() -> list[InputDevice]:
 
 
 def resolve_input_device(device_name: str | None, device_index: int | None) -> InputDevice:
+    """index → 完全一致名 → 部分一致名 → OS 既定 → 先頭 の優先順位でデバイスを解決する。
+
+    Raises:
+        DeviceNotFoundError: 指定条件に一致するデバイスも、利用可能なデバイスも存在しない場合。
+    """
     devices = list_input_devices()
     if device_index is not None:
         for device in devices:

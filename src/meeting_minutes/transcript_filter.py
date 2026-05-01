@@ -1,3 +1,5 @@
+"""Whisper の幻聴・常套句・反復パターン等を理由別に弾くフィルタと統計。"""
+
 from collections import Counter
 from dataclasses import dataclass, field
 
@@ -5,11 +7,14 @@ from meeting_minutes.config import TranscriptFilterConfig
 
 
 def normalize_transcript_text(text: str) -> str:
+    """連続空白を 1 つに畳んだ正規化テキストを返す（重複判定の前段で利用）。"""
     return " ".join(text.split())
 
 
 @dataclass
 class TranscriptRejectionStats:
+    """棄却件数を理由別に集計する累積カウンタ。"""
+
     total: int = 0
     by_reason: Counter[str] = field(default_factory=Counter)
 
@@ -25,6 +30,8 @@ class TranscriptRejectionStats:
 
 
 class TranscriptFilter:
+    """設定された理由（空白・常套句・短すぎる・反復パターン）でテキストを棄却するフィルタ。"""
+
     def __init__(
         self,
         config: TranscriptFilterConfig,

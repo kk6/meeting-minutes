@@ -1,3 +1,5 @@
+"""`meeting-minutes doctor` 用に外部依存（ffmpeg, 音声入力, Ollama, Whisper）の疎通確認を行う。"""
+
 import logging
 import shutil
 
@@ -11,6 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 def run_checks(config: AppConfig) -> list[tuple[str, bool, str]]:
+    """各種依存の疎通結果を `(項目名, 成功フラグ, 詳細メッセージ)` のリストで返す。
+
+    ネットワーク疎通や PortAudio の状態に依存するため、呼び出し時の環境スナップショット
+    を返す副作用なしの関数として設計している。
+    """
     results: list[tuple[str, bool, str]] = []
 
     ffmpeg = shutil.which("ffmpeg")

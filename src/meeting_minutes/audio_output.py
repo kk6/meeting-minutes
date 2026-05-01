@@ -1,3 +1,5 @@
+"""録音音声を 16bit PCM の WAV ファイルとして書き出すユーティリティ。"""
+
 import wave
 from pathlib import Path
 
@@ -5,6 +7,8 @@ import numpy as np
 
 
 class WavAudioWriter:
+    """float32 の音声サンプルを 16bit PCM WAV に逐次追記するライター。"""
+
     def __init__(self, path: Path, *, sample_rate: int) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path

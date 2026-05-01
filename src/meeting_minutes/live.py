@@ -1,3 +1,5 @@
+"""ライブ録音セッションのオーケストレーション（録音・書き起こし・ドラフト生成）。"""
+
 import logging
 import wave
 from dataclasses import dataclass
@@ -59,6 +61,8 @@ def _close_audio_writer(audio_writer: WavAudioWriter, errors: list[str]) -> None
 
 @dataclass
 class AudioRecording:
+    """WAV 書き出し器のライフサイクルを管理し、エラー発生時は自動で録音を停止する。"""
+
     path: Path | None
     writer: WavAudioWriter | None = None
 
@@ -94,6 +98,8 @@ class AudioRecording:
 
 @dataclass
 class AudioOverflowRecorder:
+    """音声入力オーバーフローの累計を記録し、`errors` 配列の同一エントリを更新する。"""
+
     errors: list[str]
     events: int = 0
     blocks: int = 0
@@ -119,6 +125,8 @@ class AudioOverflowRecorder:
 
 @dataclass
 class DynamicPromptContext:
+    """語彙ヒントと直近の文字起こし文脈を結合した initial_prompt を逐次生成する。"""
+
     vocabulary: Vocabulary
     max_prompt_chars: int
     recent_context_chars: int
@@ -138,6 +146,8 @@ class DynamicPromptContext:
 
 @dataclass
 class TranscriptWriter:
+    """確定セグメントをコンソールへ表示し、設定があればファイルへも追記する出力シンク。"""
+
     path: Path | None
 
     def write_segments(
@@ -164,6 +174,8 @@ class TranscriptWriter:
 
 @dataclass
 class DraftScheduler:
+    """一定間隔で議事録ドラフトを生成するスケジューラ（文字起こしに更新がない場合はスキップ）。"""
+
     transcript_path: Path | None
     session_dir: Path
     config: AppConfig
@@ -231,6 +243,11 @@ class DraftScheduler:
 
 
 def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
+    """ライブ録音セッションを起動し、Ctrl+C 終了までループを回す。
+
+    `draft_interval_minutes > 0` の場合、その間隔で議事録ドラフトを生成する。
+    終了時には常に metadata.json を出力する（例外発生時も含む）。
+    """
     started_at = datetime.now()
     input_device = resolve_input_device(config.audio.device, config.audio.device_index)
     session_dir = create_session_dir(config.output.base_dir, started_at)

@@ -1,3 +1,5 @@
+"""VAD・書き起こし・フィルタ・重複除去・出力の協調を担うランナー層。"""
+
 from typing import Protocol
 
 import numpy as np
@@ -9,6 +11,8 @@ from meeting_minutes.vad import SpeechSegment, SpeechSegmenter
 
 
 class SegmentWriter(Protocol):
+    """確定したセグメントを永続化するシンクの最小契約。"""
+
     def write_segments(
         self,
         segments: list[TranscriptionSegment],
@@ -18,6 +22,8 @@ class SegmentWriter(Protocol):
 
 
 class SegmentTranscriber(Protocol):
+    """音声配列をセグメントの列に書き起こすトランスクライバーの契約。"""
+
     def transcribe_segments(
         self,
         audio: np.ndarray,
@@ -27,12 +33,16 @@ class SegmentTranscriber(Protocol):
 
 
 class PromptContext(Protocol):
+    """initial_prompt を動的に構築・更新するコンテキスト保持器の契約。"""
+
     def build(self) -> str | None: ...
 
     def append(self, text: str) -> None: ...
 
 
 class SpeechTranscriptionRunner:
+    """発話区間ごとに「書き起こし→フィルタ→重複除去→書き出し」を実行する協調器。"""
+
     def __init__(
         self,
         *,

@@ -1,9 +1,13 @@
+"""書き起こし前にノイズゲートとピーク正規化をかける前処理層。"""
+
 import numpy as np
 
 from meeting_minutes.config import PreprocessingConfig
 
 
 class AudioPreprocessor:
+    """音声チャンクへノイズゲートとピーク正規化を順に適用する前処理器。"""
+
     def __init__(self, config: PreprocessingConfig) -> None:
         self._config = config
 

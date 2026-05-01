@@ -1,3 +1,5 @@
+"""faster-whisper を用いた音声書き起こしのラッパー。"""
+
 from dataclasses import dataclass
 
 import numpy as np
@@ -8,12 +10,16 @@ from meeting_minutes.errors import TranscriptionError
 
 @dataclass(frozen=True)
 class TranscriptionSegment:
+    """Whisper が出力した 1 セグメント分の時刻付きテキスト。"""
+
     start: float
     end: float
     text: str
 
 
 class WhisperTranscriber:
+    """faster-whisper モデルをロードして音声を書き起こす同期トランスクライバー。"""
+
     def __init__(
         self,
         config: TranscriptionConfig,

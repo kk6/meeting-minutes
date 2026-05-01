@@ -1,3 +1,5 @@
+"""アプリ全体の設定を pydantic モデルで定義し、TOML / 環境変数 / CLI 上書きから組み立てる。"""
+
 from pathlib import Path
 from typing import Self
 
@@ -6,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AudioConfig(BaseModel):
+    """マイク入力（デバイス、サンプリング、チャンク長、オーバーフロー扱い）の設定。"""
+
     device: str | None = None
     device_index: int | None = None
     sample_rate: int = 16_000
@@ -15,6 +19,8 @@ class AudioConfig(BaseModel):
 
 
 class VadConfig(BaseModel):
+    """VAD（音声区間検出）のフレーム長・閾値・最小／最大発話長の設定。"""
+
     enabled: bool = True
     frame_ms: int = Field(default=30, ge=10)
     speech_threshold: float = Field(default=0.01, gt=0)
@@ -38,6 +44,8 @@ class VadConfig(BaseModel):
 
 
 class PreprocessingConfig(BaseModel):
+    """前処理（ノイズゲート、ピーク正規化）の有効化と閾値設定。"""
+
     enabled: bool = False
     normalize_peak: bool = True
     target_peak: float = Field(default=0.8, gt=0, le=1.0)
@@ -46,6 +54,8 @@ class PreprocessingConfig(BaseModel):
 
 
 class TranscriptionConfig(BaseModel):
+    """Whisper モデル名・言語・実行デバイス・量子化設定。"""
+
     whisper_model: str = "small"
     language: str = "ja"
     device: str = "cpu"
@@ -53,6 +63,8 @@ class TranscriptionConfig(BaseModel):
 
 
 class TranscriptFilterConfig(BaseModel):
+    """Whisper の幻聴・常套句・反復パターン除去のしきい値とデフォルト常套句。"""
+
     enabled: bool = True
     canned_false_positives: list[str] = Field(
         default_factory=lambda: [
@@ -67,6 +79,8 @@ class TranscriptFilterConfig(BaseModel):
 
 
 class SummarizationConfig(BaseModel):
+    """要約に用いる Ollama のエンドポイント・モデル・推論パラメータ設定。"""
+
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "gemma4"
     temperature: float = 0.2
@@ -75,17 +89,23 @@ class SummarizationConfig(BaseModel):
 
 
 class OutputConfig(BaseModel):
+    """成果物（文字起こし、音声）の出力ディレクトリと保存可否の設定。"""
+
     base_dir: Path = Path("output")
     save_transcript: bool = True
     save_audio: bool = True
 
 
 class ChunkingConfig(BaseModel):
+    """要約時に長文を分割するチャンクサイズと重複量の設定。"""
+
     chunk_size: int = 6000
     chunk_overlap: int = 500
 
 
 class VocabularyConfig(BaseModel):
+    """参加者・用語ファイルのパスとプロンプト注入時の文字数制限。"""
+
     glossary_file: Path | None = None
     participants_file: Path | None = None
     # Whisper の initial_prompt は約 224 token が上限。日本語では 1 文字 ≒ 1〜2 token のため、
@@ -99,6 +119,11 @@ class VocabularyConfig(BaseModel):
 
 
 class AppConfig(BaseSettings):
+    """全セクションを束ねるアプリ設定。
+
+    `MEETING_MINUTES_<SECTION>__<KEY>` 形式の環境変数で各セクションの値を上書き可能。
+    """
+
     model_config = SettingsConfigDict(env_prefix="MEETING_MINUTES_", env_nested_delimiter="__")
 
     audio: AudioConfig = Field(default_factory=AudioConfig)
@@ -113,6 +138,14 @@ class AppConfig(BaseSettings):
 
 
 def load_config(path: Path | None) -> AppConfig:
+    """TOML 設定ファイルを読み込み、`AppConfig` を組み立てて返す。
+
+    Args:
+        path: TOML ファイルのパス。None の場合は環境変数とデフォルトのみで構築する。
+
+    Raises:
+        FileNotFoundError: `path` が指定されたが存在しない場合。
+    """
     if path is None:
         return AppConfig()
     if not path.exists():
@@ -126,6 +159,14 @@ def load_config(path: Path | None) -> AppConfig:
 
 
 def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfig:
+    """`section.key` 形式の上書き辞書を `config` に適用した新しい `AppConfig` を返す。
+
+    `model_copy(update=...)` はバリデーションをスキップするため、最終的に
+    `model_validate` で再検証して不整合を検出する。
+
+    Raises:
+        ValueError: キー形式が `section.key` でない、または未知のセクションが指定された場合。
+    """
     allowed_sections = {
         "audio",
         "vad",

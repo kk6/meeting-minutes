@@ -1,3 +1,5 @@
+"""文字起こしから議事録 Markdown を生成するパイプライン。"""
+
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
@@ -12,6 +14,7 @@ MinutesMode = Literal["draft", "final"]
 
 
 def split_text(text: str, *, chunk_size: int, chunk_overlap: int) -> list[str]:
+    """`text` を `chunk_size` 文字以下のチャンクに、`chunk_overlap` 文字の重なりで分割する。"""
     if len(text) <= chunk_size:
         return [text]
     chunks: list[str] = []
@@ -93,6 +96,24 @@ def generate_minutes(
     output: Path | None,
     config: AppConfig,
 ) -> Path:
+    """1 つ以上の文字起こしファイルを読み込み、議事録 Markdown を出力する。
+
+    `chunking` 設定を超える長さの場合は分割→部分要約→統合の 2 段構成で生成する。
+    `output` が None の場合は最初の文字起こしファイルと同じディレクトリに既定名で保存する。
+
+    Args:
+        transcript_file: 単一パス、または複数パス。複数指定時は順序通りに連結する。
+        mode: "draft"（途中経過向け）または "final"（最終版）。
+        output: 出力先パス。None で既定パス。
+        config: アプリ設定（チャンク分割、Ollama、語彙）。
+
+    Returns:
+        実際に書き込まれた出力ファイルのパス。
+
+    Raises:
+        MeetingMinutesError: `transcript_file` が空の場合。
+        OllamaError: Ollama 呼び出しに失敗した場合。
+    """
     transcript_files = (
         [transcript_file] if isinstance(transcript_file, Path) else list(transcript_file)
     )

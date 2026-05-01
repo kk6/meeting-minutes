@@ -1,3 +1,5 @@
+"""連続するチャンク間で重複・近似の文字起こしを除去する。"""
+
 from collections import deque
 from difflib import SequenceMatcher
 
@@ -5,6 +7,13 @@ from meeting_minutes.transcript_filter import TranscriptRejectionStats, normaliz
 
 
 class TranscriptDedupe:
+    """直前テキストとの類似度と直近履歴を使った重複判定器。
+
+    Whisper のチャンク境界では同一フレーズが繰り返し出力されやすいため、
+    完全一致集合と直前テキストとの類似比較の両方で重複を弾く。
+    履歴は LRU 的に `max_seen` 件まで保持する。
+    """
+
     def __init__(
         self,
         similarity_threshold: float = 0.92,
