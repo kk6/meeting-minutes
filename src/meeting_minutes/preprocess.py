@@ -21,16 +21,17 @@ class AudioPreprocessor:
     def _noise_gate(self, audio: np.ndarray) -> np.ndarray:
         if audio.size == 0:
             return audio
-        return np.where(np.abs(audio) < self._config.noise_gate_threshold, 0.0, audio).astype(
-            np.float32,
-            copy=False,
-        )
+        threshold = np.float32(self._config.noise_gate_threshold)
+        return np.where(np.abs(audio) < threshold, np.float32(0.0), audio)
 
     def _normalize_peak(self, audio: np.ndarray) -> np.ndarray:
         if audio.size == 0:
             return audio
-        peak = float(np.max(np.abs(audio)))
+        peak = np.max(np.abs(audio))
         if peak <= 0:
             return audio
-        gain = self._config.target_peak / peak
-        return np.clip(audio * gain, -1.0, 1.0).astype(np.float32, copy=False)
+        gain = np.float32(self._config.target_peak) / peak
+        processed = np.empty_like(audio)
+        np.multiply(audio, gain, out=processed)
+        np.clip(processed, np.float32(-1.0), np.float32(1.0), out=processed)
+        return processed

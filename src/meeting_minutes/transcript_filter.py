@@ -9,7 +9,7 @@ def normalize_transcript_text(text: str) -> str:
 
 
 @dataclass
-class TranscriptFilterStats:
+class TranscriptRejectionStats:
     total: int = 0
     by_reason: Counter[str] = field(default_factory=Counter)
 
@@ -29,10 +29,10 @@ class TranscriptFilter:
         self,
         config: TranscriptFilterConfig,
         *,
-        stats: TranscriptFilterStats | None = None,
+        stats: TranscriptRejectionStats | None = None,
     ) -> None:
         self._config = config
-        self.stats = stats or TranscriptFilterStats()
+        self.stats = stats or TranscriptRejectionStats()
         self._false_positives = {
             normalize_transcript_text(text).casefold()
             for text in config.canned_false_positives

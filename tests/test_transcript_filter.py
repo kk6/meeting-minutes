@@ -1,9 +1,9 @@
 from meeting_minutes.config import TranscriptFilterConfig
-from meeting_minutes.transcript_filter import TranscriptFilter, TranscriptFilterStats
+from meeting_minutes.transcript_filter import TranscriptFilter, TranscriptRejectionStats
 
 
 def test_transcript_filter_skips_canned_false_positive() -> None:
-    stats = TranscriptFilterStats()
+    stats = TranscriptRejectionStats()
     transcript_filter = TranscriptFilter(
         TranscriptFilterConfig(canned_false_positives=["Thank you."]),
         stats=stats,

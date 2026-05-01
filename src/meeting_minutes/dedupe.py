@@ -1,7 +1,7 @@
 from collections import deque
 from difflib import SequenceMatcher
 
-from meeting_minutes.transcript_filter import TranscriptFilterStats, normalize_transcript_text
+from meeting_minutes.transcript_filter import TranscriptRejectionStats, normalize_transcript_text
 
 
 class TranscriptDedupe:
@@ -10,7 +10,7 @@ class TranscriptDedupe:
         similarity_threshold: float = 0.92,
         max_seen: int = 300,
         *,
-        stats: TranscriptFilterStats | None = None,
+        stats: TranscriptRejectionStats | None = None,
     ) -> None:
         if max_seen < 1:
             raise ValueError("max_seen must be greater than or equal to 1")

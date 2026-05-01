@@ -25,7 +25,7 @@ from meeting_minutes.output import (
 from meeting_minutes.preprocess import AudioPreprocessor
 from meeting_minutes.summarize import generate_minutes
 from meeting_minutes.transcribe import TranscriptionSegment, WhisperTranscriber
-from meeting_minutes.transcript_filter import TranscriptFilter, TranscriptFilterStats
+from meeting_minutes.transcript_filter import TranscriptFilter, TranscriptRejectionStats
 from meeting_minutes.vad import SpeechSegmenter
 from meeting_minutes.vocabulary import (
     RecentTranscriptContext,
@@ -254,9 +254,9 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
     if initial_prompt:
         console.print(f"[green]Vocabulary hint:[/green] {len(initial_prompt)} chars")
     transcriber = WhisperTranscriber(config.transcription, initial_prompt=initial_prompt)
-    filter_stats = TranscriptFilterStats()
-    transcript_filter = TranscriptFilter(config.transcript_filter, stats=filter_stats)
-    dedupe = TranscriptDedupe(stats=filter_stats)
+    rejection_stats = TranscriptRejectionStats()
+    transcript_filter = TranscriptFilter(config.transcript_filter, stats=rejection_stats)
+    dedupe = TranscriptDedupe(stats=rejection_stats)
     speech_segmenter = SpeechSegmenter(config.vad, sample_rate=config.audio.sample_rate)
     prompt_context = (
         DynamicPromptContext(
@@ -332,7 +332,7 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
             transcript_path=transcript_path,
             audio_path=audio_recording.path,
             errors=errors,
-            transcript_filter=filter_stats.as_dict(),
+            transcript_rejections=rejection_stats.as_dict(),
         )
         write_metadata(session_dir / "metadata.json", metadata)
         console.print(f"[green]Metadata saved:[/green] {session_dir / 'metadata.json'}")

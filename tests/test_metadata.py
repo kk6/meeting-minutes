@@ -28,7 +28,7 @@ def test_write_metadata_serializes_datetime_and_path(tmp_path: Path) -> None:
         transcript_path=transcript_path,
         audio_path=audio_path,
         errors=[],
-        transcript_filter={"total": 2, "by_reason": {"duplicate": 1, "repeated_pattern": 1}},
+        transcript_rejections={"total": 2, "by_reason": {"duplicate": 1, "repeated_pattern": 1}},
     )
     output = tmp_path / "metadata.json"
 
@@ -39,7 +39,7 @@ def test_write_metadata_serializes_datetime_and_path(tmp_path: Path) -> None:
     assert data["ended_at"] == "2026-04-28T10:00:08"
     assert data["transcript_path"] == str(transcript_path)
     assert data["audio_path"] == str(audio_path)
-    assert data["transcript_filter"] == {
+    assert data["transcript_rejections"] == {
         "total": 2,
         "by_reason": {"duplicate": 1, "repeated_pattern": 1},
     }

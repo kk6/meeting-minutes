@@ -19,6 +19,7 @@ def test_preprocessor_normalizes_peak_upward() -> None:
         PreprocessingConfig(enabled=True, target_peak=0.8),
     ).process(audio)
 
+    assert processed.dtype == np.float32
     assert np.max(np.abs(processed)) == np.float32(0.8)
 
 
@@ -29,6 +30,7 @@ def test_preprocessor_normalizes_peak_downward() -> None:
         PreprocessingConfig(enabled=True, target_peak=0.8),
     ).process(audio)
 
+    assert processed.dtype == np.float32
     assert np.max(np.abs(processed)) == np.float32(0.8)
 
 
@@ -52,4 +54,5 @@ def test_preprocessor_applies_noise_gate() -> None:
         ),
     ).process(audio)
 
+    assert processed.dtype == np.float32
     assert np.array_equal(processed, np.array([0.0, 0.01, 0.0], dtype=np.float32))
