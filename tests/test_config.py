@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from meeting_minutes.config import PreprocessingConfig, VadConfig, apply_overrides, load_config
+from meeting_minutes.config import AppConfig, PreprocessingConfig, VadConfig, apply_overrides, load_config
 
 
 def test_load_config_from_toml(tmp_path: Path) -> None:
@@ -87,3 +87,18 @@ def test_vad_config_rejects_min_speech_longer_than_max() -> None:
 def test_vad_config_rejects_frame_longer_than_max() -> None:
     with pytest.raises(ValueError, match="frame_ms"):
         VadConfig(frame_ms=500, max_speech_seconds=0.1)
+
+
+def test_apply_overrides_accepts_all_appconfig_sections() -> None:
+    """allowed_sections が AppConfig.model_fields から動的に導出されることを確認する。
+
+    AppConfig に新セクションを追加するだけで apply_overrides が自動対応する。
+    各セクションのフィールドを現在値のまま上書きしても ValueError が発生しないことで示す。
+    """
+    config = load_config(None)
+    for section in AppConfig.model_fields:
+        section_config = getattr(config, section)
+        first_field = next(iter(type(section_config).model_fields))
+        current_value = getattr(section_config, first_field)
+        result = apply_overrides(config, {f"{section}.{first_field}": current_value})
+        assert getattr(result, section) is not None
