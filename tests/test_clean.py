@@ -55,7 +55,7 @@ def test_clean_transcript_writes_output_to_default_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     transcript = tmp_path / "transcript_live.md"
-    transcript.write_text("[00:00:01] hello\n", encoding="utf-8")
+    transcript.write_text("[00:00:01 - 00:00:02] hello\n", encoding="utf-8")
     client = FakeOllamaClient(None)
     monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
@@ -73,8 +73,8 @@ def test_clean_transcript_combines_multiple_files_in_order(
     second = tmp_path / "session-2" / "transcript_live.md"
     first.parent.mkdir()
     second.parent.mkdir()
-    first.write_text("[00:00:01] first line\n", encoding="utf-8")
-    second.write_text("[00:20:00] second line\n", encoding="utf-8")
+    first.write_text("[00:00:01 - 00:00:02] first line\n", encoding="utf-8")
+    second.write_text("[00:20:00 - 00:20:01] second line\n", encoding="utf-8")
     client = FakeOllamaClient(None)
     monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
@@ -93,10 +93,10 @@ def test_clean_transcript_sends_each_chunk_to_ollama(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # 22文字/行 × 200行 = 4400文字。chunk_size=3000 なら行境界で 2 チャンクに分割される。
-    line = "[00:00:01] hello world\n"
+    # 34文字/行 × 100行 = 3400文字。chunk_size=3000 なら行境界で 2 チャンクに分割される。
+    line = "[00:00:01 - 00:00:02] hello world\n"
     transcript = tmp_path / "transcript_live.md"
-    transcript.write_text(line * 200, encoding="utf-8")
+    transcript.write_text(line * 100, encoding="utf-8")
     client = FakeOllamaClient(None)
     monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
@@ -111,7 +111,7 @@ def test_clean_transcript_uses_transcript_xml_tag_in_prompt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     transcript = tmp_path / "transcript_live.md"
-    transcript.write_text("[00:00:01] hello world\n", encoding="utf-8")
+    transcript.write_text("[00:00:01 - 00:00:02] hello world\n", encoding="utf-8")
     client = FakeOllamaClient(None)
     monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
@@ -132,7 +132,7 @@ def test_clean_transcript_respects_output_path_option(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     transcript = tmp_path / "transcript_live.md"
-    transcript.write_text("[00:00:01] hello\n", encoding="utf-8")
+    transcript.write_text("[00:00:01 - 00:00:02] hello\n", encoding="utf-8")
     custom_output = tmp_path / "custom" / "out.md"
     client = FakeOllamaClient(None)
     monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
@@ -148,7 +148,7 @@ def test_clean_transcript_uses_output_filename_from_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     transcript = tmp_path / "transcript_live.md"
-    transcript.write_text("[00:00:01] hello\n", encoding="utf-8")
+    transcript.write_text("[00:00:01 - 00:00:02] hello\n", encoding="utf-8")
     client = FakeOllamaClient(None)
     monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
@@ -164,7 +164,7 @@ def test_clean_transcript_passes_summarization_config_to_ollama(
 ) -> None:
     """OllamaClient には cleaning 専用設定ではなく config.summarization が渡ることを固定する。"""
     transcript = tmp_path / "transcript_live.md"
-    transcript.write_text("[00:00:01] hello\n", encoding="utf-8")
+    transcript.write_text("[00:00:01 - 00:00:02] hello\n", encoding="utf-8")
     received_configs: list[object] = []
 
     class CapturingFactory:
@@ -196,21 +196,27 @@ def test_clean_transcript_passes_summarization_config_to_ollama(
 
 
 def test_split_lines_returns_single_chunk_when_text_fits() -> None:
-    text = "[00:00:01] hello\n[00:00:02] world\n"
+    text = "[00:00:01 - 00:00:02] hello\n[00:00:02 - 00:00:03] world\n"
     assert _split_lines(text, chunk_size=1000) == [text]
 
 
 def test_split_lines_never_cuts_mid_line() -> None:
-    line = "[00:00:01] hello world\n"  # 22 chars
-    text = line * 10  # 220 chars
+    line = "[00:00:01 - 00:00:02] hello world\n"  # 34 chars
+    text = line * 10  # 340 chars
     chunks = _split_lines(text, chunk_size=100)
     for chunk in chunks:
         for actual_line in chunk.splitlines():
-            assert actual_line.startswith("[00:00:01]")
+            assert actual_line.startswith("[00:00:01 - 00:00:02]")
+
+
+def test_split_lines_raises_when_single_line_exceeds_chunk_size() -> None:
+    long_line = "x" * 101 + "\n"
+    with pytest.raises(MeetingMinutesError, match="chunk_size"):
+        _split_lines(long_line, chunk_size=100)
 
 
 def test_split_lines_preserves_all_content() -> None:
-    line = "[00:00:01] hello\n"
+    line = "[00:00:01 - 00:00:02] hello\n"
     text = line * 50
     chunks = _split_lines(text, chunk_size=200)
     assert "".join(chunks) == text
@@ -218,7 +224,7 @@ def test_split_lines_preserves_all_content() -> None:
 
 def test_split_lines_handles_text_without_newlines() -> None:
     text = "no newline here"
-    assert _split_lines(text, chunk_size=5) == [text]
+    assert _split_lines(text, chunk_size=100) == [text]
 
 
 def test_split_lines_handles_empty_text() -> None:

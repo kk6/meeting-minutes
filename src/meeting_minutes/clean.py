@@ -24,6 +24,11 @@ def _split_lines(text: str, chunk_size: int) -> list[str]:
     current: list[str] = []
     current_len = 0
     for line in lines:
+        if len(line) > chunk_size:
+            raise MeetingMinutesError(
+                f"1行が chunk_size ({chunk_size} 文字) を超えています ({len(line)} 文字)。"
+                " cleaning.chunk_size を大きくしてください。"
+            )
         if current and current_len + len(line) > chunk_size:
             chunks.append("".join(current))
             current = []
@@ -43,7 +48,7 @@ def clean_transcript(
     """文字起こしファイルを整形し、書き出したパスを返す。
 
     フィラー・言い直し・重複・句読点不足を LLM に機械的に整形させる。
-    要約とは異なり原文に近い形を保つため、chunk_overlap はデフォルト 0。
+    行境界で分割するため、1行が cleaning.chunk_size を超える場合はエラーになる。
 
     `output` が None の場合、最初のファイルと同じディレクトリに
     `cleaning.output_filename` で保存する。
@@ -54,7 +59,7 @@ def clean_transcript(
         config: アプリ設定。
 
     Raises:
-        MeetingMinutesError: ファイルが1つも指定されていない場合。
+        MeetingMinutesError: ファイルが1つも指定されていない場合、または1行が chunk_size を超える場合。
         OllamaError: Ollama API の呼び出しが失敗した場合。
         OSError: ファイルの読み込みに失敗した場合。
         UnicodeDecodeError: ファイルが UTF-8 でデコードできない場合。
