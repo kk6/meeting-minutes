@@ -20,12 +20,15 @@ uv sync
 1. 環境を確認する
 2. 入力デバイスを確認する
 3. `live` でリアルタイム文字起こしを実行する
-4. `draft` または `finalize` で議事録Markdownを生成する
+4. 必要に応じて `clean` で文字起こしを整形する
+5. `draft` または `finalize` で議事録Markdownを生成する
 
 ```bash
 uv run meeting-minutes check
 uv run meeting-minutes devices
 uv run meeting-minutes live --device "BlackHole 64ch"
+# 任意: フィラー・言い直しを整形してから議事録生成
+uv run meeting-minutes clean ./output/2026-04-28_193822_live_meeting/transcript_live.md
 uv run meeting-minutes draft ./output/2026-04-28_193822_live_meeting/transcript_live.md
 uv run meeting-minutes finalize ./output/2026-04-28_193822_live_meeting/transcript_live.md
 ```
@@ -139,6 +142,37 @@ uv run meeting-minutes live --device "BlackHole 64ch"
 uv run meeting-minutes live --device "BlackHole 64ch" --channels 2
 ```
 
+## clean
+
+文字起こしのフィラー・言い直し・重複・句読点不足を LLM で機械的に整形し、読みやすいテキストとして保存します。
+
+要約や解釈は行わず、原文に近い形のまま整えます。整形済み transcript は `draft` や `finalize` にそのまま渡せます。
+
+```bash
+uv run meeting-minutes clean ./output/2026-04-28_193822_live_meeting/transcript_live.md
+```
+
+既定の出力先:
+
+```text
+先頭 transcript と同じディレクトリの transcript_clean.md
+```
+
+出力先を指定する場合:
+
+```bash
+uv run meeting-minutes clean ./output/current/transcript_live.md --output ./output/current/clean.md
+```
+
+整形済み transcript を最終議事録生成に使う場合:
+
+```bash
+uv run meeting-minutes clean ./output/current/transcript_live.md
+uv run meeting-minutes finalize ./output/current/transcript_clean.md
+```
+
+設定ファイルで挙動を変更できます（`[cleaning]` セクション参照）。
+
 ## draft
 
 途中までの文字起こしから、議事録ドラフトを生成します。
@@ -251,6 +285,11 @@ save_audio = true
 [chunking]
 chunk_size = 6000
 chunk_overlap = 500
+
+[cleaning]
+chunk_size = 4000
+chunk_overlap = 0
+output_filename = "transcript_clean.md"
 
 [vocabulary]
 # glossary_file = "vocab/glossary.txt"

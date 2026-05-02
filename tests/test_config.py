@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from meeting_minutes.config import (
+    CleaningConfig,
     PreprocessingConfig,
     VadConfig,
     appconfig_section_names,
@@ -112,18 +113,43 @@ def test_vad_config_rejects_frame_longer_than_max() -> None:
         VadConfig(frame_ms=500, max_speech_seconds=0.1)
 
 
-def test_apply_overrides_accepts_all_appconfig_sections() -> None:
-    """allowed_sections が AppConfig のネスト BaseModel セクションから動的に導出されることを確認する。
+def test_cleaning_config_defaults_to_no_overlap_to_avoid_duplicate_cleaned_text() -> None:
+    config = CleaningConfig()
 
-    AppConfig に新セクション（ネスト BaseModel）を追加するだけで apply_overrides が自動対応する。
+    assert config.chunk_overlap == 0
+
+
+def test_cleaning_config_rejects_overlap_equal_to_chunk_size() -> None:
+    with pytest.raises(ValueError, match="cleaning.chunk_overlap must be less than chunk_size"):
+        CleaningConfig(chunk_size=1000, chunk_overlap=1000)
+
+
+def test_cleaning_config_rejects_overlap_greater_than_chunk_size() -> None:
+    with pytest.raises(ValueError, match="cleaning.chunk_overlap must be less than chunk_size"):
+        CleaningConfig(chunk_size=1000, chunk_overlap=2000)
+
+
+def test_example_config_loads_cleaning_section() -> None:
+    config = load_config(Path("config.example.toml"))
+
+    assert config.cleaning.chunk_size == 4000
+    assert config.cleaning.chunk_overlap == 0
+    assert config.cleaning.output_filename == "transcript_clean.md"
+
+
+def test_apply_overrides_accepts_all_appconfig_sections() -> None:
+    """allowed_sections が AppConfig のネスト BaseModel セクションから動的に導出される。
+
+    AppConfig に新セクション（ネスト BaseModel）を追加するだけで
+    apply_overrides が自動対応することを確認する。
     """
     config = load_config(None)
     sections = appconfig_section_names()
     assert sections, "AppConfig には少なくとも 1 つのネスト BaseModel セクションが存在するはず"
     for section in sections:
         section_config = getattr(config, section)
-        # None デフォルトのフィールドは apply_overrides が continue するため override 経路を通らない。
-        # 最初の non-None デフォルト値を持つフィールドを選ぶ。
+        # None デフォルトのフィールドは apply_overrides が continue するため
+        # override 経路を通らない。最初の non-None デフォルト値を持つフィールドを選ぶ。
         field_name, current_value = next(
             (
                 (name, getattr(section_config, name))
@@ -132,7 +158,9 @@ def test_apply_overrides_accepts_all_appconfig_sections() -> None:
             ),
             (None, None),
         )
-        assert field_name is not None, f"section '{section}' に non-None デフォルト値を持つフィールドがない"
+        assert field_name is not None, (
+            f"section '{section}' に non-None デフォルト値を持つフィールドがない"
+        )
         # 既定値と異なる値を渡すことで、override が実際に適用されたことを確認する。
         override_value = _make_different_value(current_value)
         result = apply_overrides(config, {f"{section}.{field_name}": override_value})

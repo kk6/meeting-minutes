@@ -21,6 +21,8 @@ uv sync
 uv run meeting-minutes check
 uv run meeting-minutes devices
 uv run meeting-minutes live --device "BlackHole 2ch"
+# 文字起こしを整形（フィラー・言い直し・重複を除去）
+uv run meeting-minutes clean ./output/current/transcript_live.md
 uv run meeting-minutes draft ./output/current/transcript_live.md
 uv run meeting-minutes finalize ./output/current/transcript_live.md
 # liveを再起動して transcript が分かれた場合

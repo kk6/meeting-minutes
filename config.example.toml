@@ -64,3 +64,11 @@ dynamic_context_enabled = false
 dynamic_context_chars = 120
 # 要約プロンプトへの語彙注入の文字数上限。上限を超える語彙は末尾から項目単位で切り落とす。0 で無効。
 max_summary_chars = 1000
+
+[cleaning]
+# clean コマンドの入力分割サイズ。要約（chunking）より小さめにして整形精度を高める。
+chunk_size = 4000
+# 整形は原文に近い形を保つため、overlap はデフォルト 0。overlap ありだと重複文が出力に混入する。
+chunk_overlap = 0
+# clean コマンドのデフォルト出力ファイル名。
+output_filename = "transcript_clean.md"
