@@ -106,6 +106,40 @@ def test_clean_transcript_sends_each_chunk_to_ollama(
     assert len(client.prompts) == 2
 
 
+def test_clean_transcript_joins_chunks_without_extra_blank_lines(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """チャンク間に余計な空行が挿入されないことを確認する。"""
+    line = "[00:00:01 - 00:00:02] hello world\n"
+    transcript = tmp_path / "transcript_live.md"
+    transcript.write_text(line * 100, encoding="utf-8")
+
+    class ChunkReturningClient:
+        def __init__(self, config: object) -> None:
+            pass
+
+        def __enter__(self) -> "ChunkReturningClient":
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            pass
+
+        call_count = 0
+
+        def generate(self, _prompt: str) -> str:
+            ChunkReturningClient.call_count += 1
+            return f"[00:00:0{ChunkReturningClient.call_count} - 00:00:0{ChunkReturningClient.call_count + 1}] cleaned line\n"
+
+    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", ChunkReturningClient)
+
+    config = AppConfig(cleaning=CleaningConfig(chunk_size=3000))
+    output = clean_transcript([transcript], None, config)
+
+    content = output.read_text(encoding="utf-8")
+    assert "\n\n\n" not in content  # チャンク境界に空行が2行以上入らない
+
+
 def test_clean_transcript_uses_transcript_xml_tag_in_prompt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

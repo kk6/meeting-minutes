@@ -77,7 +77,7 @@ def clean_transcript(
             for chunk in chunks
         ]
 
-    cleaned = "\n\n".join(part.strip() for part in cleaned_parts)
+    cleaned = "".join(cleaned_parts)
 
     output_path = (
         output if output is not None else files[0].parent / config.cleaning.output_filename
