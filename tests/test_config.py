@@ -101,4 +101,4 @@ def test_apply_overrides_accepts_all_appconfig_sections() -> None:
         first_field = next(iter(type(section_config).model_fields))
         current_value = getattr(section_config, first_field)
         result = apply_overrides(config, {f"{section}.{first_field}": current_value})
-        assert getattr(result, section) is not None
+        assert getattr(getattr(result, section), first_field) == current_value
