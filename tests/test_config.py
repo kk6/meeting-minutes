@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 
 from meeting_minutes.config import (
-    AppConfig,
     PreprocessingConfig,
     VadConfig,
     appconfig_section_names,
@@ -106,7 +105,16 @@ def test_apply_overrides_accepts_all_appconfig_sections() -> None:
     assert sections, "AppConfig には少なくとも 1 つのネスト BaseModel セクションが存在するはず"
     for section in sections:
         section_config = getattr(config, section)
-        first_field = next(iter(type(section_config).model_fields))
-        current_value = getattr(section_config, first_field)
-        result = apply_overrides(config, {f"{section}.{first_field}": current_value})
-        assert getattr(getattr(result, section), first_field) == current_value
+        # None デフォルトのフィールドは apply_overrides が continue するため override 経路を通らない。
+        # 最初の non-None デフォルト値を持つフィールドを選ぶ。
+        field_name, current_value = next(
+            (
+                (name, getattr(section_config, name))
+                for name in type(section_config).model_fields
+                if getattr(section_config, name) is not None
+            ),
+            (None, None),
+        )
+        assert field_name is not None, f"section '{section}' に non-None デフォルト値を持つフィールドがない"
+        result = apply_overrides(config, {f"{section}.{field_name}": current_value})
+        assert getattr(getattr(result, section), field_name) == current_value
