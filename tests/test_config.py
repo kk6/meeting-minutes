@@ -2,7 +2,30 @@ from pathlib import Path
 
 import pytest
 
-from meeting_minutes.config import PreprocessingConfig, VadConfig, apply_overrides, load_config
+from meeting_minutes.config import (
+    PreprocessingConfig,
+    VadConfig,
+    appconfig_section_names,
+    apply_overrides,
+    load_config,
+)
+
+
+def _make_different_value(value: object) -> object:
+    """既定値とは異なる値を型に応じて生成する（override が実際に適用されたことを検証するため）。"""
+    if isinstance(value, bool):
+        return not value
+    if isinstance(value, int):
+        return value + 1
+    if isinstance(value, float):
+        return round(value + 0.1, 10)
+    if isinstance(value, str):
+        return value + "_override"
+    if isinstance(value, Path):
+        return Path(str(value) + "_override")
+    if isinstance(value, list):
+        return [*value, "_override"]
+    return value
 
 
 def test_load_config_from_toml(tmp_path: Path) -> None:
@@ -87,3 +110,30 @@ def test_vad_config_rejects_min_speech_longer_than_max() -> None:
 def test_vad_config_rejects_frame_longer_than_max() -> None:
     with pytest.raises(ValueError, match="frame_ms"):
         VadConfig(frame_ms=500, max_speech_seconds=0.1)
+
+
+def test_apply_overrides_accepts_all_appconfig_sections() -> None:
+    """allowed_sections が AppConfig のネスト BaseModel セクションから動的に導出されることを確認する。
+
+    AppConfig に新セクション（ネスト BaseModel）を追加するだけで apply_overrides が自動対応する。
+    """
+    config = load_config(None)
+    sections = appconfig_section_names()
+    assert sections, "AppConfig には少なくとも 1 つのネスト BaseModel セクションが存在するはず"
+    for section in sections:
+        section_config = getattr(config, section)
+        # None デフォルトのフィールドは apply_overrides が continue するため override 経路を通らない。
+        # 最初の non-None デフォルト値を持つフィールドを選ぶ。
+        field_name, current_value = next(
+            (
+                (name, getattr(section_config, name))
+                for name in type(section_config).model_fields
+                if getattr(section_config, name) is not None
+            ),
+            (None, None),
+        )
+        assert field_name is not None, f"section '{section}' に non-None デフォルト値を持つフィールドがない"
+        # 既定値と異なる値を渡すことで、override が実際に適用されたことを確認する。
+        override_value = _make_different_value(current_value)
+        result = apply_overrides(config, {f"{section}.{field_name}": override_value})
+        assert getattr(getattr(result, section), field_name) == override_value
