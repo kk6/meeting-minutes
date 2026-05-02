@@ -3,7 +3,7 @@ from types import TracebackType
 
 import pytest
 
-from meeting_minutes.clean import _escape_transcript_tag, clean_transcript
+from meeting_minutes.clean import _escape_transcript_tag, _split_lines, clean_transcript
 from meeting_minutes.config import AppConfig, CleaningConfig, SummarizationConfig
 from meeting_minutes.errors import MeetingMinutesError
 
@@ -93,8 +93,10 @@ def test_clean_transcript_sends_each_chunk_to_ollama(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # 22文字/行 × 200行 = 4400文字。chunk_size=3000 なら行境界で 2 チャンクに分割される。
+    line = "[00:00:01] hello world\n"
     transcript = tmp_path / "transcript_live.md"
-    transcript.write_text("a" * 5000, encoding="utf-8")
+    transcript.write_text(line * 200, encoding="utf-8")
     client = FakeOllamaClient(None)
     monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
@@ -191,6 +193,36 @@ def test_clean_transcript_passes_summarization_config_to_ollama(
     assert len(received_configs) == 1
     assert isinstance(received_configs[0], SummarizationConfig)
     assert received_configs[0].ollama_model == "test-model"
+
+
+def test_split_lines_returns_single_chunk_when_text_fits() -> None:
+    text = "[00:00:01] hello\n[00:00:02] world\n"
+    assert _split_lines(text, chunk_size=1000) == [text]
+
+
+def test_split_lines_never_cuts_mid_line() -> None:
+    line = "[00:00:01] hello world\n"  # 22 chars
+    text = line * 10  # 220 chars
+    chunks = _split_lines(text, chunk_size=100)
+    for chunk in chunks:
+        for actual_line in chunk.splitlines():
+            assert actual_line.startswith("[00:00:01]")
+
+
+def test_split_lines_preserves_all_content() -> None:
+    line = "[00:00:01] hello\n"
+    text = line * 50
+    chunks = _split_lines(text, chunk_size=200)
+    assert "".join(chunks) == text
+
+
+def test_split_lines_handles_text_without_newlines() -> None:
+    text = "no newline here"
+    assert _split_lines(text, chunk_size=5) == [text]
+
+
+def test_split_lines_handles_empty_text() -> None:
+    assert _split_lines("", chunk_size=100) == []
 
 
 def test_escape_transcript_tag_neutralizes_closing_tag() -> None:
