@@ -42,6 +42,9 @@ ollama_model = "gemma4"
 temperature = 0.2
 num_ctx = 8192
 timeout_seconds = 600
+# gemma4 等の thinking 対応モデルは推論トークンが num_ctx を使い切り response が空になる。
+# thinking が不要な整形・要約タスクでは false のままにする。
+think = false
 
 [output]
 base_dir = "output"

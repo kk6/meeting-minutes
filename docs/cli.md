@@ -277,6 +277,7 @@ ollama_model = "gemma4"
 temperature = 0.2
 num_ctx = 8192
 timeout_seconds = 600
+think = false
 
 [output]
 base_dir = "output"
@@ -297,6 +298,21 @@ output_filename = "transcript_clean.md"
 # participants_file = "vocab/participants.txt"
 max_prompt_chars = 200
 ```
+
+### 要約・整形（summarization）
+
+`[summarization]` セクションで Ollama の接続先やモデルを設定します。
+
+| キー | 既定値 | 説明 |
+| --- | --- | --- |
+| `ollama_base_url` | `http://localhost:11434` | Ollama API のベース URL |
+| `ollama_model` | `gemma4` | 使用するモデル名 |
+| `temperature` | `0.2` | 生成の温度。低いほど安定した出力 |
+| `num_ctx` | `8192` | コンテキストウィンドウのトークン数 |
+| `timeout_seconds` | `600` | API リクエストのタイムアウト秒数 |
+| `think` | `false` | thinking 対応モデルの推論ステップ出力の有効化。`false` 推奨 |
+
+`think = true` にすると、gemma4 等の thinking 対応モデルが推論ステップを出力します。ただし推論トークンが `num_ctx` を使い切り応答が空になる場合があるため、整形・要約タスクでは `false` のままにしてください。
 
 ### 語彙ヒント（vocabulary）
 
@@ -346,3 +362,12 @@ uv run meeting-minutes check
 ```
 
 モデル名が違う場合は `--ollama-model` または設定ファイルで変更します。
+
+### clean / draft / finalize で「Ollama APIから空の応答が返りました」
+
+gemma4 等の thinking 対応モデルでは、デフォルトで推論ステップに大量のトークンを消費し、`num_ctx` を使い切って実際の応答が空になる場合があります。設定ファイルの `[summarization]` セクションで `think = false` を設定してください（既定値は `false`）。
+
+```toml
+[summarization]
+think = false
+```
