@@ -88,5 +88,5 @@ def clean_transcript(
         output if output is not None else files[0].parent / config.cleaning.output_filename
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(cleaned.rstrip() + "\n", encoding="utf-8")
+    output_path.write_text(cleaned.rstrip("\n") + "\n", encoding="utf-8")
     return output_path
