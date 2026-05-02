@@ -86,6 +86,9 @@ class SummarizationConfig(BaseModel):
     temperature: float = 0.2
     num_ctx: int = 8192
     timeout_seconds: float = 600
+    # gemma4 等の thinking 対応モデルはデフォルトで推論トークンを大量生成し
+    # num_ctx を使い切って response が空になるため、デフォルトで無効化する。
+    think: bool = False
 
 
 class OutputConfig(BaseModel):

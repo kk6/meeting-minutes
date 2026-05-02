@@ -46,6 +46,7 @@ class OllamaClient:
             "model": self._config.ollama_model,
             "prompt": prompt,
             "stream": False,
+            "think": self._config.think,
             "options": {
                 "temperature": self._config.temperature,
                 "num_ctx": self._config.num_ctx,
