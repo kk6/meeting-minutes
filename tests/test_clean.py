@@ -3,7 +3,7 @@ from types import TracebackType
 
 import pytest
 
-from meeting_minutes.clean import _escape_transcript_tag, _split_lines, clean_transcript
+from meeting_minutes.clean import _escape_transcript_tag, clean_transcript
 from meeting_minutes.config import AppConfig, CleaningConfig, SummarizationConfig
 from meeting_minutes.errors import MeetingMinutesError
 
@@ -237,40 +237,91 @@ def test_clean_transcript_passes_summarization_config_to_ollama(
     assert received_configs[0].ollama_model == "test-model"
 
 
-def test_split_lines_returns_single_chunk_when_text_fits() -> None:
-    text = "[00:00:01 - 00:00:02] hello\n[00:00:02 - 00:00:03] world\n"
-    assert _split_lines(text, chunk_size=1000) == [text]
+def test_clean_transcript_sends_single_request_when_content_fits_in_one_chunk(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transcript = tmp_path / "transcript_live.md"
+    transcript.write_text(
+        "[00:00:01 - 00:00:02] hello\n[00:00:02 - 00:00:03] world\n", encoding="utf-8"
+    )
+    client = FakeOllamaClient(None)
+    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+
+    config = AppConfig(cleaning=CleaningConfig(chunk_size=1000))
+    clean_transcript([transcript], None, config)
+
+    assert len(client.prompts) == 1
 
 
-def test_split_lines_never_cuts_mid_line() -> None:
+def test_clean_transcript_never_splits_mid_line(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     line = "[00:00:01 - 00:00:02] hello world\n"  # 34 chars
-    text = line * 10  # 340 chars
-    chunks = _split_lines(text, chunk_size=100)
-    for chunk in chunks:
-        for actual_line in chunk.splitlines():
+    transcript = tmp_path / "transcript_live.md"
+    transcript.write_text(line * 10, encoding="utf-8")  # 340 chars
+    client = FakeOllamaClient(None)
+    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+
+    config = AppConfig(cleaning=CleaningConfig(chunk_size=100))
+    clean_transcript([transcript], None, config)
+
+    for prompt in client.prompts:
+        # プロンプト冒頭の説明文にも "<transcript>" が現れるため、最後の出現箇所を使う
+        start = prompt.rindex("<transcript>") + len("<transcript>")
+        end = prompt.index("</transcript>", start)
+        for actual_line in prompt[start:end].splitlines():
+            if not actual_line or actual_line.startswith("##"):
+                continue
             assert actual_line.startswith("[00:00:01 - 00:00:02]")
 
 
-def test_split_lines_raises_when_single_line_exceeds_chunk_size() -> None:
-    long_line = "x" * 101 + "\n"
+def test_clean_transcript_raises_when_line_exceeds_chunk_size(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transcript = tmp_path / "transcript_live.md"
+    transcript.write_text("x" * 101 + "\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "meeting_minutes.clean.OllamaClient", _make_fake_client_factory(FakeOllamaClient(None))
+    )
+
+    config = AppConfig(cleaning=CleaningConfig(chunk_size=100))
     with pytest.raises(MeetingMinutesError, match="chunk_size"):
-        _split_lines(long_line, chunk_size=100)
+        clean_transcript([transcript], None, config)
 
 
-def test_split_lines_preserves_all_content() -> None:
-    line = "[00:00:01 - 00:00:02] hello\n"
-    text = line * 50
-    chunks = _split_lines(text, chunk_size=200)
-    assert "".join(chunks) == text
+def test_clean_transcript_includes_all_lines_across_chunks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lines = [f"[00:00:{i:02d} - 00:00:{i + 1:02d}] line {i}\n" for i in range(50)]
+    transcript = tmp_path / "transcript_live.md"
+    transcript.write_text("".join(lines), encoding="utf-8")
+    client = FakeOllamaClient(None)
+    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+
+    config = AppConfig(cleaning=CleaningConfig(chunk_size=200))
+    clean_transcript([transcript], None, config)
+
+    all_prompts = "\n".join(client.prompts)
+    for i in range(50):
+        assert f"line {i}" in all_prompts
 
 
-def test_split_lines_handles_text_without_newlines() -> None:
-    text = "no newline here"
-    assert _split_lines(text, chunk_size=100) == [text]
+def test_clean_transcript_handles_file_without_newlines(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transcript = tmp_path / "transcript_live.md"
+    transcript.write_text("no newline here", encoding="utf-8")
+    client = FakeOllamaClient(None)
+    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
+    clean_transcript([transcript], None, AppConfig())
 
-def test_split_lines_handles_empty_text() -> None:
-    assert _split_lines("", chunk_size=100) == []
+    assert len(client.prompts) == 1
 
 
 def test_escape_transcript_tag_neutralizes_closing_tag() -> None:
