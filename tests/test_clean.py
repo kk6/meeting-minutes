@@ -106,20 +106,24 @@ def test_clean_transcript_sends_each_chunk_to_ollama(
     assert len(client.prompts) == 2
 
 
-def test_clean_transcript_joins_chunks_without_extra_blank_lines(
+def test_clean_transcript_joins_chunks_with_single_newline_boundary(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """チャンク間に余計な空行が挿入されないことを確認する。"""
+    """チャンク境界で行が連結されず、かつ余計な空行も入らないことを確認する。
+
+    OllamaClient.generate() は内部で .strip() するため末尾改行が失われる。
+    そのフェイクとして末尾改行なしの文字列を返し、実挙動を再現する。
+    """
     line = "[00:00:01 - 00:00:02] hello world\n"
     transcript = tmp_path / "transcript_live.md"
     transcript.write_text(line * 100, encoding="utf-8")
 
-    class ChunkReturningClient:
+    class StrippedResponseClient:
         def __init__(self, config: object) -> None:
             pass
 
-        def __enter__(self) -> "ChunkReturningClient":
+        def __enter__(self) -> "StrippedResponseClient":
             return self
 
         def __exit__(self, *_: object) -> None:
@@ -128,16 +132,20 @@ def test_clean_transcript_joins_chunks_without_extra_blank_lines(
         call_count = 0
 
         def generate(self, _prompt: str) -> str:
-            ChunkReturningClient.call_count += 1
-            return f"[00:00:0{ChunkReturningClient.call_count} - 00:00:0{ChunkReturningClient.call_count + 1}] cleaned line\n"
+            # .strip() 済みを模倣 — 末尾改行なし
+            StrippedResponseClient.call_count += 1
+            return f"[00:00:0{StrippedResponseClient.call_count} - 00:00:0{StrippedResponseClient.call_count + 1}] cleaned line"
 
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", ChunkReturningClient)
+    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", StrippedResponseClient)
 
     config = AppConfig(cleaning=CleaningConfig(chunk_size=3000))
     output = clean_transcript([transcript], None, config)
 
     content = output.read_text(encoding="utf-8")
-    assert "\n\n\n" not in content  # チャンク境界に空行が2行以上入らない
+    # 境界に改行が入り行が連結されない
+    assert "cleaned line[" not in content
+    # チャンク境界に余計な空行が入らない
+    assert "\n\n" not in content
 
 
 def test_clean_transcript_uses_transcript_xml_tag_in_prompt(

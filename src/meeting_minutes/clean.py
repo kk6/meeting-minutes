@@ -23,10 +23,12 @@ def _split_lines(text: str, chunk_size: int) -> list[str]:
     chunks: list[str] = []
     current: list[str] = []
     current_len = 0
-    for line in lines:
+    for lineno, line in enumerate(lines, start=1):
         if len(line) > chunk_size:
+            preview = line[:40].rstrip()
             raise MeetingMinutesError(
-                f"1行が chunk_size ({chunk_size} 文字) を超えています ({len(line)} 文字)。"
+                f"{lineno} 行目が chunk_size ({chunk_size} 文字) を超えています"
+                f" ({len(line)} 文字): {preview!r} ..."
                 " cleaning.chunk_size を大きくしてください。"
             )
         if current and current_len + len(line) > chunk_size:
@@ -77,7 +79,9 @@ def clean_transcript(
             for chunk in chunks
         ]
 
-    cleaned = "".join(cleaned_parts)
+    # generate() は内部で .strip() するため末尾改行が失われる。
+    # rstrip("\n") で揃えてから "\n" で結合し、チャンク境界で行が連結しないようにする。
+    cleaned = "\n".join(part.rstrip("\n") for part in cleaned_parts)
 
     output_path = (
         output if output is not None else files[0].parent / config.cleaning.output_filename
