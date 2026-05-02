@@ -79,10 +79,8 @@ def clean_transcript(
             for chunk in chunks
         ]
 
-    # generate() は内部で .strip() するため先頭・末尾の空白と改行が失われる。
-    # removesuffix("\n") で末尾の改行を1つだけ除去してから "\n" で結合し、
-    # チャンク境界で行が連結しないようにする。rstrip だとモデルが返した末尾空行も消えるため使わない。
-    cleaned = "\n".join(part.removesuffix("\n") for part in cleaned_parts)
+    # generate() が .strip() するため各チャンクは末尾改行なし。"\n" で結合して境界を保証する。
+    cleaned = "\n".join(cleaned_parts)
 
     output_path = (
         output if output is not None else files[0].parent / config.cleaning.output_filename
