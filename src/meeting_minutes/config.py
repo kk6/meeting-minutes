@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -123,6 +123,10 @@ class VocabularyConfig(BaseModel):
 
 class CleaningConfig(BaseModel):
     """文字起こし整形（clean）コマンドのチャンク化と出力設定。"""
+
+    # 廃止済みフィールド（chunk_overlap 等）を設定ファイルに残したままにするとサイレントに無視される。
+    # extra='forbid' で未知フィールドを即座にエラーにし、ユーザーが設定の不整合に気づけるようにする。
+    model_config = ConfigDict(extra="forbid")
 
     chunk_size: int = Field(default=4000, ge=100)
     output_filename: str = "transcript_clean.md"
