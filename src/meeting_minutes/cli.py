@@ -176,5 +176,23 @@ def finalize(
     _generate_minutes_command(transcript_files, "final", output, config)
 
 
+@app.command()
+def clean(
+    transcript_files: Annotated[list[Path], typer.Argument(exists=True, readable=True)],
+    output: Annotated[Path | None, typer.Option("--output", "-o")] = None,
+    config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
+) -> None:
+    """文字起こしを整形して Markdown として保存します。"""
+    from meeting_minutes.clean import clean_transcript
+
+    app_config = load_config(config)
+    try:
+        output_path = clean_transcript(transcript_files, output, app_config)
+    except MeetingMinutesError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    console.print(f"[green]Cleaned:[/green] {output_path}")
+
+
 if __name__ == "__main__":
     app()

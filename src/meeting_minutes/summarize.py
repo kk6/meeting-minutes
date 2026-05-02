@@ -82,7 +82,15 @@ def _default_output_path(transcript_file: Path, mode: MinutesMode) -> Path:
     return transcript_file.parent / output_name
 
 
-def _read_transcripts(transcript_files: Sequence[Path]) -> str:
+def read_transcripts(transcript_files: Sequence[Path]) -> str:
+    """文字起こしファイル群を `## Transcript N: <name>` 見出しで連結して返す。
+
+    Args:
+        transcript_files: 読み込み対象のファイルパス。順序は出力順序と一致する。
+
+    Returns:
+        全ファイルを順序通りに連結した Markdown 文字列。
+    """
     sections = []
     for index, transcript_file in enumerate(transcript_files, start=1):
         transcript = transcript_file.read_text(encoding="utf-8").strip()
@@ -108,7 +116,7 @@ def generate_minutes(
     if not transcript_files:
         raise MeetingMinutesError("文字起こしファイルを1つ以上指定してください。")
 
-    transcript = _read_transcripts(transcript_files)
+    transcript = read_transcripts(transcript_files)
     chunks = split_text(
         transcript,
         chunk_size=config.chunking.chunk_size,
