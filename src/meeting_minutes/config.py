@@ -154,6 +154,20 @@ def load_config(path: Path | None) -> AppConfig:
     return AppConfig.model_validate(data)
 
 
+def appconfig_section_names() -> set[str]:
+    """`AppConfig` のうち、ネストされた `BaseModel` セクション（上書き対象）の名前集合を返す。
+
+    `apply_overrides` の `current.model_copy(...)` はネストモデル前提のため、
+    将来 `AppConfig` に非モデルフィールド（例: `debug: bool`）が追加されても
+    対象に含まれないようフィルタする。
+    """
+    return {
+        name
+        for name, field in AppConfig.model_fields.items()
+        if isinstance(field.annotation, type) and issubclass(field.annotation, BaseModel)
+    }
+
+
 def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfig:
     """`section.key` 形式の上書きを適用した新しい `AppConfig` を返す。
 
@@ -161,11 +175,7 @@ def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfi
         ValueError: キー形式が不正、または未知のセクションが指定された場合。
         pydantic.ValidationError: 上書き値が型・制約に合わない場合（再検証時）。
     """
-    allowed_sections = {
-        name
-        for name, field in AppConfig.model_fields.items()
-        if isinstance(field.annotation, type) and issubclass(field.annotation, BaseModel)
-    }
+    allowed_sections = appconfig_section_names()
     section_updates: dict[str, dict[str, object]] = {}
     for dotted_key, value in overrides.items():
         if value is None:

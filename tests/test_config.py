@@ -2,7 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from meeting_minutes.config import AppConfig, PreprocessingConfig, VadConfig, apply_overrides, load_config
+from meeting_minutes.config import (
+    AppConfig,
+    PreprocessingConfig,
+    VadConfig,
+    appconfig_section_names,
+    apply_overrides,
+    load_config,
+)
 
 
 def test_load_config_from_toml(tmp_path: Path) -> None:
@@ -90,13 +97,14 @@ def test_vad_config_rejects_frame_longer_than_max() -> None:
 
 
 def test_apply_overrides_accepts_all_appconfig_sections() -> None:
-    """allowed_sections が AppConfig.model_fields から動的に導出されることを確認する。
+    """allowed_sections が AppConfig のネスト BaseModel セクションから動的に導出されることを確認する。
 
-    AppConfig に新セクションを追加するだけで apply_overrides が自動対応する。
-    各セクションのフィールドを現在値のまま上書きしても ValueError が発生しないことで示す。
+    AppConfig に新セクション（ネスト BaseModel）を追加するだけで apply_overrides が自動対応する。
     """
     config = load_config(None)
-    for section in AppConfig.model_fields:
+    sections = appconfig_section_names()
+    assert sections, "AppConfig には少なくとも 1 つのネスト BaseModel セクションが存在するはず"
+    for section in sections:
         section_config = getattr(config, section)
         first_field = next(iter(type(section_config).model_fields))
         current_value = getattr(section_config, first_field)
