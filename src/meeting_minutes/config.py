@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -86,6 +86,9 @@ class SummarizationConfig(BaseModel):
     temperature: float = 0.2
     num_ctx: int = 8192
     timeout_seconds: float = 600
+    # gemma4 等の thinking 対応モデルはデフォルトで推論トークンを大量生成し
+    # num_ctx を使い切って response が空になるため、デフォルトで無効化する。
+    think: bool = False
 
 
 class OutputConfig(BaseModel):
@@ -119,22 +122,14 @@ class VocabularyConfig(BaseModel):
 
 
 class CleaningConfig(BaseModel):
-    """文字起こし整形（clean）コマンドのチャンク化と出力設定。
+    """文字起こし整形（clean）コマンドのチャンク化と出力設定。"""
 
-    chunk_overlap は要約と異なりデフォルト 0。clean は原文に近い整形が目的であり、
-    overlap ありで独立整形すると重複文が出力に混入するため。
-    """
+    # 廃止済みフィールド（chunk_overlap 等）を設定ファイルに残したままにするとサイレントに無視される。
+    # extra='forbid' で未知フィールドを即座にエラーにし、ユーザーが設定の不整合に気づけるようにする。
+    model_config = ConfigDict(extra="forbid")
 
     chunk_size: int = Field(default=4000, ge=100)
-    chunk_overlap: int = Field(default=0, ge=0)
     output_filename: str = "transcript_clean.md"
-
-    @model_validator(mode="after")
-    def validate_overlap(self) -> Self:
-        """chunk_overlap < chunk_size を保証する。"""
-        if self.chunk_overlap >= self.chunk_size:
-            raise ValueError("cleaning.chunk_overlap must be less than chunk_size")
-        return self
 
 
 class AppConfig(BaseSettings):
