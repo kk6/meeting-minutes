@@ -290,7 +290,6 @@ chunk_overlap = 500
 
 [cleaning]
 chunk_size = 4000
-chunk_overlap = 0
 output_filename = "transcript_clean.md"
 
 [vocabulary]

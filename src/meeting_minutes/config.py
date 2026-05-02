@@ -122,22 +122,10 @@ class VocabularyConfig(BaseModel):
 
 
 class CleaningConfig(BaseModel):
-    """文字起こし整形（clean）コマンドのチャンク化と出力設定。
-
-    chunk_overlap は要約と異なりデフォルト 0。clean は原文に近い整形が目的であり、
-    overlap ありで独立整形すると重複文が出力に混入するため。
-    """
+    """文字起こし整形（clean）コマンドのチャンク化と出力設定。"""
 
     chunk_size: int = Field(default=4000, ge=100)
-    chunk_overlap: int = Field(default=0, ge=0)
     output_filename: str = "transcript_clean.md"
-
-    @model_validator(mode="after")
-    def validate_overlap(self) -> Self:
-        """chunk_overlap < chunk_size を保証する。"""
-        if self.chunk_overlap >= self.chunk_size:
-            raise ValueError("cleaning.chunk_overlap must be less than chunk_size")
-        return self
 
 
 class AppConfig(BaseSettings):

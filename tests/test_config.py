@@ -113,27 +113,10 @@ def test_vad_config_rejects_frame_longer_than_max() -> None:
         VadConfig(frame_ms=500, max_speech_seconds=0.1)
 
 
-def test_cleaning_config_defaults_to_no_overlap_to_avoid_duplicate_cleaned_text() -> None:
-    config = CleaningConfig()
-
-    assert config.chunk_overlap == 0
-
-
-def test_cleaning_config_rejects_overlap_equal_to_chunk_size() -> None:
-    with pytest.raises(ValueError, match="cleaning.chunk_overlap must be less than chunk_size"):
-        CleaningConfig(chunk_size=1000, chunk_overlap=1000)
-
-
-def test_cleaning_config_rejects_overlap_greater_than_chunk_size() -> None:
-    with pytest.raises(ValueError, match="cleaning.chunk_overlap must be less than chunk_size"):
-        CleaningConfig(chunk_size=1000, chunk_overlap=2000)
-
-
 def test_example_config_loads_cleaning_section() -> None:
     config = load_config(Path("config.example.toml"))
 
     assert config.cleaning.chunk_size == 4000
-    assert config.cleaning.chunk_overlap == 0
     assert config.cleaning.output_filename == "transcript_clean.md"
 
 

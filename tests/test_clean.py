@@ -100,7 +100,7 @@ def test_clean_transcript_sends_each_chunk_to_ollama(
     client = FakeOllamaClient(None)
     monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
-    config = AppConfig(cleaning=CleaningConfig(chunk_size=3000, chunk_overlap=0))
+    config = AppConfig(cleaning=CleaningConfig(chunk_size=3000))
     clean_transcript([transcript], None, config)
 
     assert len(client.prompts) == 2
