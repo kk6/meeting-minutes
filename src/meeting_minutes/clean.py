@@ -11,8 +11,9 @@ from meeting_minutes.summarize import read_transcripts, split_text
 
 
 def _escape_transcript_tag(text: str) -> str:
-    # </transcript> がプロンプトのタグ境界を破壊するのを防ぐ
-    return text.replace("</transcript>", "<\\/transcript>")
+    # < > をエンティティ化してプロンプトの <transcript> タグ境界を保護する。
+    # html.escape() は & も変換するため文字起こし内の & が化ける。< > のみを対象にする。
+    return text.replace("<", "&lt;").replace(">", "&gt;")
 
 
 def clean_transcript(

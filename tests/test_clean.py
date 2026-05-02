@@ -3,7 +3,7 @@ from types import TracebackType
 
 import pytest
 
-from meeting_minutes.clean import clean_transcript
+from meeting_minutes.clean import _escape_transcript_tag, clean_transcript
 from meeting_minutes.config import AppConfig, CleaningConfig, SummarizationConfig
 from meeting_minutes.errors import MeetingMinutesError
 
@@ -191,3 +191,12 @@ def test_clean_transcript_passes_summarization_config_to_ollama(
     assert len(received_configs) == 1
     assert isinstance(received_configs[0], SummarizationConfig)
     assert received_configs[0].ollama_model == "test-model"
+
+
+def test_escape_transcript_tag_neutralizes_closing_tag() -> None:
+    assert _escape_transcript_tag("</transcript>") == "&lt;/transcript&gt;"
+
+
+def test_escape_transcript_tag_neutralizes_tag_variants() -> None:
+    assert "&lt;" in _escape_transcript_tag("</transcript >")
+    assert "&lt;" in _escape_transcript_tag("</TRANSCRIPT>")
