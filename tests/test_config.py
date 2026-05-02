@@ -11,6 +11,23 @@ from meeting_minutes.config import (
 )
 
 
+def _make_different_value(value: object) -> object:
+    """既定値とは異なる値を型に応じて生成する（override が実際に適用されたことを検証するため）。"""
+    if isinstance(value, bool):
+        return not value
+    if isinstance(value, int):
+        return value + 1
+    if isinstance(value, float):
+        return round(value + 0.1, 10)
+    if isinstance(value, str):
+        return value + "_override"
+    if isinstance(value, Path):
+        return Path(str(value) + "_override")
+    if isinstance(value, list):
+        return [*value, "_override"]
+    return value
+
+
 def test_load_config_from_toml(tmp_path: Path) -> None:
     config_file = tmp_path / "config.toml"
     config_file.write_text(
@@ -116,5 +133,7 @@ def test_apply_overrides_accepts_all_appconfig_sections() -> None:
             (None, None),
         )
         assert field_name is not None, f"section '{section}' に non-None デフォルト値を持つフィールドがない"
-        result = apply_overrides(config, {f"{section}.{field_name}": current_value})
-        assert getattr(getattr(result, section), field_name) == current_value
+        # 既定値と異なる値を渡すことで、override が実際に適用されたことを確認する。
+        override_value = _make_different_value(current_value)
+        result = apply_overrides(config, {f"{section}.{field_name}": override_value})
+        assert getattr(getattr(result, section), field_name) == override_value
