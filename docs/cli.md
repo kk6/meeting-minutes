@@ -27,10 +27,11 @@ uv sync
 uv run meeting-minutes check
 uv run meeting-minutes devices
 uv run meeting-minutes live --device "BlackHole 64ch"
-# 任意: フィラー・言い直しを整形してから議事録生成
-uv run meeting-minutes clean ./output/2026-04-28_193822_live_meeting/transcript_live.md
 uv run meeting-minutes draft ./output/2026-04-28_193822_live_meeting/transcript_live.md
 uv run meeting-minutes finalize ./output/2026-04-28_193822_live_meeting/transcript_live.md
+# 任意: clean で整形してから finalize すると議事録の入力品質が上がる
+uv run meeting-minutes clean ./output/2026-04-28_193822_live_meeting/transcript_live.md
+uv run meeting-minutes finalize ./output/2026-04-28_193822_live_meeting/transcript_clean.md
 ```
 
 ## check

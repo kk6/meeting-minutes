@@ -10,6 +10,11 @@ from meeting_minutes.prompts import CLEAN_PROMPT
 from meeting_minutes.summarize import read_transcripts, split_text
 
 
+def _escape_transcript_tag(text: str) -> str:
+    # </transcript> がプロンプトのタグ境界を破壊するのを防ぐ
+    return text.replace("</transcript>", "<\\/transcript>")
+
+
 def clean_transcript(
     transcript_files: Sequence[Path],
     output: Path | None,
@@ -31,6 +36,8 @@ def clean_transcript(
     Raises:
         MeetingMinutesError: ファイルが1つも指定されていない場合。
         OllamaError: Ollama API の呼び出しが失敗した場合。
+        OSError: ファイルの読み込みに失敗した場合。
+        UnicodeDecodeError: ファイルが UTF-8 でデコードできない場合。
     """
     files = list(transcript_files)
     if not files:
@@ -44,7 +51,10 @@ def clean_transcript(
     )
 
     with OllamaClient(config.summarization) as client:
-        cleaned_parts = [client.generate(CLEAN_PROMPT.format(transcript=chunk)) for chunk in chunks]
+        cleaned_parts = [
+            client.generate(CLEAN_PROMPT.format(transcript=_escape_transcript_tag(chunk)))
+            for chunk in chunks
+        ]
 
     cleaned = "\n\n".join(part.strip() for part in cleaned_parts)
 
