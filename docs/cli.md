@@ -143,6 +143,57 @@ uv run meeting-minutes live --device "BlackHole 64ch"
 uv run meeting-minutes live --device "BlackHole 64ch" --channels 2
 ```
 
+## daemon
+
+ローカル制御サーバを起動します。HTTP API（`/sessions/start`・`/sessions/stop`・`/sessions/current`）経由で録音セッションを制御できます。
+
+```bash
+uv run meeting-minutes daemon
+```
+
+ポートを変更する場合:
+
+```bash
+uv run meeting-minutes daemon --port 9000
+```
+
+設定ファイルを指定する場合:
+
+```bash
+uv run meeting-minutes daemon --config ./config.example.toml
+```
+
+| オプション | 既定値 | 説明 |
+| --- | --- | --- |
+| `--port` | `8765` | 待ち受けポート |
+| `--config` | なし | TOML設定ファイル |
+
+`127.0.0.1` のみに bind するため、外部ホストから TCP 接続することはできません。ブラウザ経由の CSRF は Origin ヘッダー検証（localhost / 127.0.0.1 以外を 403 で拒否）と CORS ポリシーの組み合わせで防いでいます。停止するには `Ctrl+C` を押します。
+
+### API ドキュメント
+
+daemon 起動中は以下の URL で対話型ドキュメントを参照できます。
+
+| URL | 説明 |
+| --- | --- |
+| http://127.0.0.1:8765/docs | Swagger UI（ブラウザから直接リクエストを試せる） |
+| http://127.0.0.1:8765/redoc | ReDoc（読みやすいリファレンス形式） |
+
+curl でのリクエスト例:
+
+```bash
+# セッション開始
+curl -s -X POST http://127.0.0.1:8765/sessions/start \
+  -H "Content-Type: application/json" \
+  -d '{}' | jq
+
+# セッション停止
+curl -s -X POST http://127.0.0.1:8765/sessions/stop | jq
+
+# 現在の状態確認
+curl -s http://127.0.0.1:8765/sessions/current | jq
+```
+
 ## clean
 
 文字起こしのフィラー・言い直し・重複・句読点不足を LLM で機械的に整形し、読みやすいテキストとして保存します。

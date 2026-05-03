@@ -30,6 +30,14 @@ uv run meeting-minutes finalize ./output/current/transcript_clean.md
 uv run meeting-minutes finalize ./output/session-1/transcript_live.md ./output/session-2/transcript_live.md
 ```
 
+HTTP API 経由で制御する場合（daemon モード）:
+
+```bash
+# ターミナル A: サーバを起動（Ctrl+C で停止）
+uv run meeting-minutes daemon
+# → http://127.0.0.1:8765/docs で API ドキュメントを参照できます
+```
+
 設定例は [config.example.toml](./config.example.toml) を参照してください。
 
 詳しいCLI説明は [docs/cli.md](./docs/cli.md) を参照してください。

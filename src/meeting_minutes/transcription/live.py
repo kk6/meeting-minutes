@@ -1,7 +1,9 @@
 """ライブ録音セッションのオーケストレーション（録音・書き起こし・ドラフト生成）。"""
 
 import logging
+import threading
 import wave
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from math import ceil, floor
@@ -242,10 +244,18 @@ class DraftScheduler:
             return None
 
 
-def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
+def run_live(
+    config: AppConfig,
+    *,
+    draft_interval_minutes: int = 0,
+    stop_event: threading.Event | None = None,
+    on_session_ready: Callable[[str, str | None], None] | None = None,
+) -> None:
     """ライブ録音セッションを起動する。
 
     `draft_interval_minutes > 0` でその間隔ごとに議事録ドラフトを生成する。
+    `stop_event` が指定された場合、セットされると次のチャンク処理後に録音を停止する。
+    `on_session_ready` が指定された場合、session_dir 確定後に呼ぶ。
     """
     started_at = datetime.now()
     input_device = resolve_input_device(config.audio.device, config.audio.device_index)
@@ -308,6 +318,9 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
     if config.vad.enabled:
         console.print("[green]VAD:[/green] enabled")
 
+    if on_session_ready is not None:
+        on_session_ready(str(session_dir), str(transcript_path) if transcript_path else None)
+
     try:
         audio_recording = AudioRecording.open(
             audio_path,
@@ -326,6 +339,8 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
             elapsed_seconds += config.audio.chunk_seconds
             audio_recording.write(chunk, errors)
             transcription_runner.process(audio_preprocessor.process(chunk))
+            if stop_event is not None and stop_event.is_set():
+                break
             draft_scheduler.maybe_generate(elapsed_seconds)
         if transcription_runner.flush():
             draft_scheduler.maybe_generate(elapsed_seconds)

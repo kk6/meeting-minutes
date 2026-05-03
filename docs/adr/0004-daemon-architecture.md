@@ -2,7 +2,7 @@
 
 ## Status
 
-proposed
+accepted
 
 ## Date
 
@@ -75,3 +75,12 @@ HTTP ではなく Unix ドメインソケットで制御する案を検討した
 - daemon 管理下の録音セッションでは HTTP リクエストで停止できる必要があるため、既存の `run_live()` から録音ループと停止制御を分離する必要がある
 - 単一セッション制限により、初期設計はシンプルに保てる
 - daemon プロセスのクラッシュ時にメモリ上のセッション状態が失われる。クラッシュリカバリやライブ中の状態永続化は初期スコープ外とする
+
+## Implementation Notes
+
+- `LiveSession` dataclass がセッション状態を所有し、`threading.Thread(daemon=True)` + `threading.Event` で start / stop を管理する
+- `_startup_event` はセッションごとに新規生成し、前セッションのスレッドが遅れて set() しても新セッションに影響しないようにした
+- stop 要求後も現在処理中のチャンク（最大 `chunk_seconds` 秒、デフォルト 8s）の完了を待ってから停止する。これは `audio_chunks()` が同期ブロッキングで動作するための制約で、MVP では許容する
+- `on_session_ready` コールバックはモデルロード等の初期化完了後・マイクストリーム開放前に呼ぶ。マイクデバイスのエラーは startup window（2s）を超えてから検出される場合があり、`/sessions/start` が 201 を返した後に `failed` に遷移することがある。これも MVP の制約として受け入れた
+- Swagger UI（`/docs`）と ReDoc（`/redoc`）を有効化している。`127.0.0.1` bind 済みの個人ツールでは UI ドキュメントの攻撃面増加は無視できるほど小さく、静的ドキュメントの陳腐化リスクの方が大きいと判断した
+- CSRF 対策の詳細は ADR-0005 を参照

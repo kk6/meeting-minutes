@@ -194,5 +194,21 @@ def clean(
     console.print(f"[green]Cleaned:[/green] {output_path}")
 
 
+@app.command()
+def daemon(
+    port: Annotated[int, typer.Option("--port")] = 8765,
+    config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
+) -> None:
+    """ローカル制御サーバを起動します（Ctrl+C で停止）。127.0.0.1 のみに bind します。"""
+    import uvicorn
+
+    from meeting_minutes.daemon.server import app as daemon_app
+    from meeting_minutes.daemon.server import configure
+
+    app_config = load_config(config)
+    configure(app_config)
+    uvicorn.run(daemon_app, host="127.0.0.1", port=port)
+
+
 if __name__ == "__main__":
     app()
