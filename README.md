@@ -34,13 +34,13 @@ HTTP API 経由で制御する場合（daemon モード）:
 
 ```bash
 # ターミナル A: サーバを起動（Ctrl+C で停止）
-uv run meeting-minutes daemon
+uv run meeting-minutes daemon serve
 # → http://127.0.0.1:8765/docs で API ドキュメントを参照できます
 
 # ターミナル B: CLI から制御
-uv run meeting-minutes start
-uv run meeting-minutes status
-uv run meeting-minutes stop
+uv run meeting-minutes daemon start
+uv run meeting-minutes daemon status
+uv run meeting-minutes daemon stop
 ```
 
 設定例は [config.example.toml](./config.example.toml) を参照してください。
