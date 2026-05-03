@@ -6,8 +6,8 @@ import shutil
 import httpx
 import sounddevice as sd
 
-from meeting_minutes.config import AppConfig
 from meeting_minutes.audio.devices import list_input_devices
+from meeting_minutes.config import AppConfig
 
 logger = logging.getLogger(__name__)
 

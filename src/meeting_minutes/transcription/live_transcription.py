@@ -4,10 +4,10 @@ from typing import Protocol
 
 import numpy as np
 
-from meeting_minutes.transcription.dedupe import TranscriptDedupe
-from meeting_minutes.transcription.transcribe import TranscriptionSegment
-from meeting_minutes.transcription.filter import TranscriptFilter
 from meeting_minutes.audio.vad import SpeechSegment, SpeechSegmenter
+from meeting_minutes.transcription.dedupe import TranscriptDedupe
+from meeting_minutes.transcription.filter import TranscriptFilter
+from meeting_minutes.transcription.transcribe import TranscriptionSegment
 
 
 class SegmentWriter(Protocol):

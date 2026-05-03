@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from meeting_minutes.config import load_config
 from meeting_minutes.audio.devices import InputDevice
+from meeting_minutes.config import load_config
 from meeting_minutes.core.metadata import build_metadata, write_metadata
 
 

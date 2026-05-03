@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from meeting_minutes.config import PreprocessingConfig
 from meeting_minutes.audio.preprocess import AudioPreprocessor
+from meeting_minutes.config import PreprocessingConfig
 
 
 def test_preprocessor_is_noop_when_disabled() -> None:

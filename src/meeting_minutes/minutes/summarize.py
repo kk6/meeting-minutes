@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import Literal
 
 from meeting_minutes.config import AppConfig
+from meeting_minutes.core.vocabulary import build_summary_section, load_vocabulary
 from meeting_minutes.errors import MeetingMinutesError
 from meeting_minutes.minutes.ollama_client import OllamaClient
 from meeting_minutes.minutes.prompts import DRAFT_PROMPT, FINAL_PROMPT
-from meeting_minutes.core.vocabulary import build_summary_section, load_vocabulary
 
 MinutesMode = Literal["draft", "final"]
 

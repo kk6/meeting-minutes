@@ -61,7 +61,8 @@ def clean_transcript(
         config: アプリ設定。
 
     Raises:
-        MeetingMinutesError: ファイルが1つも指定されていない場合、または1行が chunk_size を超える場合。
+        MeetingMinutesError: ファイルが1つも指定されていない場合、
+            または1行が chunk_size を超える場合。
         OllamaError: Ollama API の呼び出しが失敗した場合。
         OSError: ファイルの読み込みに失敗した場合。
         UnicodeDecodeError: ファイルが UTF-8 でデコードできない場合。

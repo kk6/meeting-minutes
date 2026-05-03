@@ -5,9 +5,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from meeting_minutes.audio.devices import InputDevice
 from meeting_minutes.audio.stream import AudioOverflowError
 from meeting_minutes.config import AppConfig, AudioConfig, OutputConfig, PreprocessingConfig
-from meeting_minutes.audio.devices import InputDevice
 from meeting_minutes.transcription.live import DraftScheduler, _segment_elapsed_range, run_live
 from meeting_minutes.transcription.transcribe import TranscriptionSegment
 
@@ -55,7 +55,9 @@ def live_dependencies(
     fake_transcriber: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("meeting_minutes.transcription.live.resolve_input_device", lambda *_args: input_device)
+    monkeypatch.setattr(
+        "meeting_minutes.transcription.live.resolve_input_device", lambda *_args: input_device
+    )
 
 
 def live_config(tmp_path: Path) -> AppConfig:
@@ -88,7 +90,9 @@ def test_draft_scheduler_generates_when_transcript_changes(
         calls.append(transcript_file)
         return tmp_path / "minutes_draft.md"
 
-    monkeypatch.setattr("meeting_minutes.transcription.live.generate_minutes", fake_generate_minutes)
+    monkeypatch.setattr(
+        "meeting_minutes.transcription.live.generate_minutes", fake_generate_minutes
+    )
     scheduler = DraftScheduler.create(
         draft_interval_minutes=1,
         transcript_path=transcript_path,
@@ -139,7 +143,9 @@ def test_run_live_applies_preprocessing_before_transcription(
             captured_peaks.append(float(np.max(np.abs(chunk))))
             return [TranscriptionSegment(start=0.1, end=0.9, text="hello")]
 
-    monkeypatch.setattr("meeting_minutes.transcription.live.resolve_input_device", lambda *_args: input_device)
+    monkeypatch.setattr(
+        "meeting_minutes.transcription.live.resolve_input_device", lambda *_args: input_device
+    )
     monkeypatch.setattr("meeting_minutes.transcription.live.audio_chunks", fake_audio_chunks)
     monkeypatch.setattr("meeting_minutes.transcription.live.WhisperTranscriber", FakeTranscriber)
 
@@ -242,7 +248,9 @@ def test_run_live_continues_and_records_audio_overflow_when_configured(
         on_overflow(2)
         yield np.full(16000, 0.1, dtype=np.float32)
 
-    monkeypatch.setattr("meeting_minutes.transcription.live.resolve_input_device", lambda *_args: input_device)
+    monkeypatch.setattr(
+        "meeting_minutes.transcription.live.resolve_input_device", lambda *_args: input_device
+    )
     monkeypatch.setattr("meeting_minutes.transcription.live.audio_chunks", fake_audio_chunks)
 
     config = AppConfig(
@@ -270,7 +278,9 @@ def test_run_live_aborts_on_audio_overflow_by_default(
         assert abort_on_overflow
         raise AudioOverflowError("音声入力の処理が追いつかず、1 block(s) を取り逃がしました。")
 
-    monkeypatch.setattr("meeting_minutes.transcription.live.resolve_input_device", lambda *_args: input_device)
+    monkeypatch.setattr(
+        "meeting_minutes.transcription.live.resolve_input_device", lambda *_args: input_device
+    )
     monkeypatch.setattr("meeting_minutes.transcription.live.audio_chunks", fake_audio_chunks)
 
     with pytest.raises(AudioOverflowError):

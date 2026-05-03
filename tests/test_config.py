@@ -122,7 +122,7 @@ def test_example_config_loads_cleaning_section() -> None:
 
 def test_cleaning_config_rejects_unknown_fields() -> None:
     with pytest.raises(ValueError, match="chunk_overlap"):
-        CleaningConfig(chunk_size=4000, chunk_overlap=0)
+        CleaningConfig(**{"chunk_size": 4000, "chunk_overlap": 0})
 
 
 def test_apply_overrides_accepts_all_appconfig_sections() -> None:

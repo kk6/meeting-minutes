@@ -7,9 +7,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from meeting_minutes.core.checks import run_checks
-from meeting_minutes.config import apply_overrides, load_config
 from meeting_minutes.audio.devices import list_input_devices
+from meeting_minutes.config import apply_overrides, load_config
+from meeting_minutes.core.checks import run_checks
 from meeting_minutes.errors import MeetingMinutesError
 from meeting_minutes.minutes.summarize import MinutesMode
 

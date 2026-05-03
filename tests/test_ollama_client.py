@@ -10,12 +10,12 @@ from meeting_minutes.errors import OllamaError
 from meeting_minutes.minutes.ollama_client import OllamaClient
 
 
-def _make_response(body: dict) -> httpx.Response:
+def _make_response(body: dict[str, object]) -> httpx.Response:
     return httpx.Response(200, json=body, request=httpx.Request("POST", "http://localhost"))
 
 
 def test_generate_sends_think_false_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    sent: list[dict] = []
+    sent: list[dict[str, object]] = []
 
     def fake_post(self: httpx.Client, url: str, **kwargs: object) -> httpx.Response:
         sent.append(json.loads(json.dumps(kwargs.get("json", {}))))
@@ -31,7 +31,7 @@ def test_generate_sends_think_false_by_default(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_generate_sends_think_true_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    sent: list[dict] = []
+    sent: list[dict[str, object]] = []
 
     def fake_post(self: httpx.Client, url: str, **kwargs: object) -> httpx.Response:
         sent.append(json.loads(json.dumps(kwargs.get("json", {}))))
@@ -51,6 +51,8 @@ def test_generate_raises_on_empty_response(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    with OllamaClient(SummarizationConfig()) as client:
-        with pytest.raises(OllamaError, match="空の応答"):
-            client.generate("hello")
+    with (
+        OllamaClient(SummarizationConfig()) as client,
+        pytest.raises(OllamaError, match="空の応答"),
+    ):
+        client.generate("hello")
