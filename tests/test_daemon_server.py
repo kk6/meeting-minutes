@@ -40,6 +40,41 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+class TestCsrfOriginCheck:
+    def test_returns_403_when_origin_is_external_on_start(
+        self, client: TestClient, fake_session: MagicMock
+    ) -> None:
+        response = client.post(
+            "/sessions/start", json={}, headers={"Origin": "https://evil.example.com"}
+        )
+        assert response.status_code == 403
+
+    def test_returns_403_when_origin_is_external_on_stop(
+        self, client: TestClient, fake_session: MagicMock
+    ) -> None:
+        response = client.post("/sessions/stop", headers={"Origin": "https://evil.example.com"})
+        assert response.status_code == 403
+
+    def test_allows_localhost_origin_on_start(
+        self, client: TestClient, fake_session: MagicMock
+    ) -> None:
+        fake_session.start.return_value = _running_status()
+
+        response = client.post(
+            "/sessions/start", json={}, headers={"Origin": "http://localhost:3000"}
+        )
+        assert response.status_code == 201
+
+    def test_allows_request_without_origin_header_on_start(
+        self, client: TestClient, fake_session: MagicMock
+    ) -> None:
+        """Origin ヘッダーなし（curl 等）は CSRF リスクがないため許可する。"""
+        fake_session.start.return_value = _running_status()
+
+        response = client.post("/sessions/start", json={})
+        assert response.status_code == 201
+
+
 class TestStartSession:
     def test_returns_201_with_running_state_when_idle(
         self, client: TestClient, fake_session: MagicMock

@@ -168,7 +168,7 @@ uv run meeting-minutes daemon --config ./config.example.toml
 | `--port` | `8765` | 待ち受けポート |
 | `--config` | なし | TOML設定ファイル |
 
-`127.0.0.1` のみに bind するため、外部ネットワークからはアクセスできません。停止するには `Ctrl+C` を押します。
+`127.0.0.1` のみに bind するため、外部ホストから TCP 接続することはできません。ブラウザ経由の CSRF は Origin ヘッダー検証（localhost / 127.0.0.1 以外を 403 で拒否）と CORS ポリシーの組み合わせで防いでいます。停止するには `Ctrl+C` を押します。
 
 ## clean
 

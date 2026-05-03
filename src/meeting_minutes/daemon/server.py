@@ -1,15 +1,18 @@
 """daemon の FastAPI アプリと 3 エンドポイント定義。"""
 
+import re
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from meeting_minutes.config import AppConfig
 from meeting_minutes.daemon.schema import SessionStatus, StartRequest
 from meeting_minutes.daemon.session import LiveSession, SessionConflictError
+
+_LOCALHOST_ORIGIN_RE = re.compile(r"https?://(localhost|127\.0\.0\.1)(:\d+)?$")
 
 _session = LiveSession()
 _config: AppConfig | None = None
@@ -25,6 +28,13 @@ def _get_config() -> AppConfig:
     if _config is None:
         return AppConfig()
     return _config
+
+
+async def _require_local_origin(request: Request) -> None:
+    """ブラウザからの CSRF を防ぐため、Origin ヘッダーが localhost 以外なら 403 を返す。"""
+    origin = request.headers.get("origin")
+    if origin is not None and not _LOCALHOST_ORIGIN_RE.match(origin):
+        raise HTTPException(status_code=403, detail="cross-origin requests are not allowed")
 
 
 @asynccontextmanager
@@ -53,7 +63,12 @@ app.add_middleware(
 )
 
 
-@app.post("/sessions/start", response_model=SessionStatus, status_code=201)
+@app.post(
+    "/sessions/start",
+    response_model=SessionStatus,
+    status_code=201,
+    dependencies=[Depends(_require_local_origin)],
+)  # noqa: E501
 def start_session(req: StartRequest | None = None) -> SessionStatus:
     """録音セッションを開始する。既に実行中の場合は 409 を返す。"""
     if req is None:
@@ -74,7 +89,9 @@ def start_session(req: StartRequest | None = None) -> SessionStatus:
     return status
 
 
-@app.post("/sessions/stop", response_model=SessionStatus)
+@app.post(
+    "/sessions/stop", response_model=SessionStatus, dependencies=[Depends(_require_local_origin)]
+)
 def stop_session() -> SessionStatus:
     """実行中のセッションを停止する。セッションがなければ 409 を返す。"""
     try:
