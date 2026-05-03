@@ -145,22 +145,38 @@ uv run meeting-minutes live --device "BlackHole 64ch" --channels 2
 
 ## daemon
 
-ローカル制御サーバを起動します。HTTP API（`/sessions/start`・`/sessions/stop`・`/sessions/current`）経由で録音セッションを制御できます。
+HTTP API 経由で録音セッションを制御するモードです。`daemon serve` でサーバを起動し、別ターミナルから `daemon start` / `daemon stop` / `daemon status` で操作します。
+
+### 基本的な使い方
 
 ```bash
-uv run meeting-minutes daemon
+# ターミナル1: サーバを起動する
+uv run meeting-minutes daemon serve
+
+# ターミナル2: 録音を開始・停止する
+uv run meeting-minutes daemon start
+uv run meeting-minutes daemon stop
+uv run meeting-minutes daemon status
+```
+
+### daemon serve
+
+ローカル制御サーバを起動します。
+
+```bash
+uv run meeting-minutes daemon serve
 ```
 
 ポートを変更する場合:
 
 ```bash
-uv run meeting-minutes daemon --port 9000
+uv run meeting-minutes daemon serve --port 9000
 ```
 
 設定ファイルを指定する場合:
 
 ```bash
-uv run meeting-minutes daemon --config ./config.example.toml
+uv run meeting-minutes daemon serve --config ./config.example.toml
 ```
 
 | オプション | 既定値 | 説明 |
@@ -170,7 +186,7 @@ uv run meeting-minutes daemon --config ./config.example.toml
 
 `127.0.0.1` のみに bind するため、外部ホストから TCP 接続することはできません。ブラウザ経由の CSRF は Origin ヘッダー検証（localhost / 127.0.0.1 以外を 403 で拒否）と CORS ポリシーの組み合わせで防いでいます。停止するには `Ctrl+C` を押します。
 
-### API ドキュメント
+#### API ドキュメント
 
 daemon 起動中は以下の URL で対話型ドキュメントを参照できます。
 
@@ -194,12 +210,12 @@ curl -s -X POST http://127.0.0.1:8765/sessions/stop | jq
 curl -s http://127.0.0.1:8765/sessions/current | jq
 ```
 
-## start
+### daemon start
 
-daemon の録音セッションを開始します。事前に `daemon` コマンドでサーバを起動しておく必要があります。
+録音セッションを開始します。事前に `daemon serve` でサーバを起動しておく必要があります。
 
 ```bash
-uv run meeting-minutes start
+uv run meeting-minutes daemon start
 ```
 
 | オプション | 既定値 | 説明 |
@@ -208,12 +224,12 @@ uv run meeting-minutes start
 | `--port` | `8765` | daemon のポート |
 | `--draft-interval-minutes` | `0` | 指定分ごとにドラフト生成。`0` なら無効 |
 
-## stop
+### daemon stop
 
 実行中の録音セッションを停止します。
 
 ```bash
-uv run meeting-minutes stop
+uv run meeting-minutes daemon stop
 ```
 
 | オプション | 既定値 | 説明 |
@@ -221,12 +237,12 @@ uv run meeting-minutes stop
 | `--host` | `127.0.0.1` | daemon のホスト |
 | `--port` | `8765` | daemon のポート |
 
-## status
+### daemon status
 
 現在のセッション状態を表示します。
 
 ```bash
-uv run meeting-minutes status
+uv run meeting-minutes daemon status
 ```
 
 | オプション | 既定値 | 説明 |

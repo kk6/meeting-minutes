@@ -1,4 +1,4 @@
-# AGENTS.md
+# meeting-minutes
 
 Guidance for coding agents working in this repository.
 
@@ -55,6 +55,18 @@ uv run meeting-minutes devices
 uv run meeting-minutes live --device "BlackHole 64ch"
 uv run meeting-minutes draft ./output/<session>/transcript_live.md
 uv run meeting-minutes finalize ./output/<session>/transcript_live.md
+```
+
+Daemon mode (HTTP API control):
+
+```bash
+# Terminal 1: start the control server
+uv run meeting-minutes daemon serve
+
+# Terminal 2: control the recording session
+uv run meeting-minutes daemon start
+uv run meeting-minutes daemon status
+uv run meeting-minutes daemon stop
 ```
 
 ## Python Style

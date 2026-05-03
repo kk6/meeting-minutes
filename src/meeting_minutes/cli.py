@@ -20,6 +20,8 @@ from meeting_minutes.errors import MeetingMinutesError
 from meeting_minutes.minutes.summarize import MinutesMode
 
 app = typer.Typer(no_args_is_help=True)
+daemon_app = typer.Typer(no_args_is_help=True, help="ローカル制御サーバを管理します。")
+app.add_typer(daemon_app, name="daemon")
 console = Console()
 
 
@@ -200,22 +202,6 @@ def clean(
     console.print(f"[green]Cleaned:[/green] {output_path}")
 
 
-@app.command()
-def daemon(
-    port: Annotated[int, typer.Option("--port")] = 8765,
-    config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
-) -> None:
-    """ローカル制御サーバを起動します（Ctrl+C で停止）。127.0.0.1 のみに bind します。"""
-    import uvicorn
-
-    from meeting_minutes.daemon.server import app as daemon_app
-    from meeting_minutes.daemon.server import configure
-
-    app_config = load_config(config)
-    configure(app_config)
-    uvicorn.run(daemon_app, host="127.0.0.1", port=port)
-
-
 def _make_daemon_client(host: str, port: int) -> "DaemonClientType":
     from meeting_minutes.daemon.client import DEFAULT_BASE_URL, DaemonClient
 
@@ -246,7 +232,7 @@ def _print_session_status(status: "SessionStatusType") -> None:
 def _daemon_connect_error(host: str, port: int) -> None:
     console.print(
         f"[red]http://{host}:{port} に接続できません。"
-        " 先に meeting-minutes daemon を起動してください。[/red]"
+        " 先に meeting-minutes daemon serve を起動してください。[/red]"
     )
 
 
@@ -257,15 +243,31 @@ def _http_error_detail(exc: "httpx.HTTPStatusError") -> str:
         return str(exc)
 
 
-@app.command()
-def start(
+@daemon_app.command("serve")
+def daemon_serve(
+    port: Annotated[int, typer.Option("--port")] = 8765,
+    config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
+) -> None:
+    """ローカル制御サーバを起動します（Ctrl+C で停止）。127.0.0.1 のみに bind します。"""
+    import uvicorn
+
+    from meeting_minutes.daemon.server import app as daemon_server_app
+    from meeting_minutes.daemon.server import configure
+
+    app_config = load_config(config)
+    configure(app_config)
+    uvicorn.run(daemon_server_app, host="127.0.0.1", port=port)
+
+
+@daemon_app.command("start")
+def daemon_start(
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port")] = 8765,
     draft_interval_minutes: Annotated[
         int, typer.Option("--draft-interval-minutes", help="0なら自動ドラフト生成なし", min=0)
     ] = 0,
 ) -> None:
-    """daemon の録音セッションを開始します。"""
+    """録音セッションを開始します。"""
     import httpx
 
     from meeting_minutes.daemon.schema import StartRequest
@@ -282,12 +284,12 @@ def start(
     _print_session_status(session_status)
 
 
-@app.command()
-def stop(
+@daemon_app.command("stop")
+def daemon_stop(
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port")] = 8765,
 ) -> None:
-    """daemon の録音セッションを停止します。"""
+    """録音セッションを停止します。"""
     import httpx
 
     client = _make_daemon_client(host, port)
@@ -302,12 +304,12 @@ def stop(
     _print_session_status(session_status)
 
 
-@app.command()
-def status(
+@daemon_app.command("status")
+def daemon_status(
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port")] = 8765,
 ) -> None:
-    """daemon の現在のセッション状態を表示します。"""
+    """現在のセッション状態を表示します。"""
     import httpx
 
     client = _make_daemon_client(host, port)
