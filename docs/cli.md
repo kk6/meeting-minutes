@@ -143,6 +143,86 @@ uv run meeting-minutes live --device "BlackHole 64ch"
 uv run meeting-minutes live --device "BlackHole 64ch" --channels 2
 ```
 
+## daemon
+
+ローカル制御サーバを起動します。起動すると `start` / `stop` / `status` コマンドで録音セッションを HTTP API 経由で制御できます。
+
+```bash
+uv run meeting-minutes daemon
+```
+
+ポートを変更する場合:
+
+```bash
+uv run meeting-minutes daemon --port 9000
+```
+
+設定ファイルを指定する場合:
+
+```bash
+uv run meeting-minutes daemon --config ./config.example.toml
+```
+
+| オプション | 既定値 | 説明 |
+| --- | --- | --- |
+| `--port` | `8765` | 待ち受けポート |
+| `--config` | なし | TOML設定ファイル |
+
+`127.0.0.1` のみに bind するため、外部ネットワークからはアクセスできません。停止するには `Ctrl+C` を押します。
+
+## start
+
+daemon の録音セッションを開始します。事前に `daemon` を起動しておく必要があります。
+
+```bash
+uv run meeting-minutes start
+```
+
+ポートや自動ドラフト生成間隔を指定する場合:
+
+```bash
+uv run meeting-minutes start --port 9000 --draft-interval-minutes 10
+```
+
+| オプション | 既定値 | 説明 |
+| --- | --- | --- |
+| `--host` | `127.0.0.1` | daemon のホスト |
+| `--port` | `8765` | daemon のポート |
+| `--draft-interval-minutes` | `0` | 指定分ごとにドラフト生成。`0` なら無効 |
+
+## stop
+
+daemon の録音セッションを停止します。
+
+```bash
+uv run meeting-minutes stop
+```
+
+| オプション | 既定値 | 説明 |
+| --- | --- | --- |
+| `--host` | `127.0.0.1` | daemon のホスト |
+| `--port` | `8765` | daemon のポート |
+
+## status
+
+daemon の現在のセッション状態を表示します。
+
+```bash
+uv run meeting-minutes status
+```
+
+| オプション | 既定値 | 説明 |
+| --- | --- | --- |
+| `--host` | `127.0.0.1` | daemon のホスト |
+| `--port` | `8765` | daemon のポート |
+
+表示される情報:
+
+- セッション ID・状態（`idle` / `running` / `stopping` / `failed`）
+- 開始日時・経過秒数
+- セッションディレクトリ・transcript ファイルパス
+- エラー一覧（ある場合）
+
 ## clean
 
 文字起こしのフィラー・言い直し・重複・句読点不足を LLM で機械的に整形し、読みやすいテキストとして保存します。
