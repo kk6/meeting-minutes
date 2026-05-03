@@ -1,7 +1,11 @@
 """`meeting-minutes` コマンドのエントリポイントを定義する Typer アプリ。"""
 
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
+
+if TYPE_CHECKING:
+    from meeting_minutes.daemon.client import DaemonClient as DaemonClientType
+    from meeting_minutes.daemon.schema import SessionStatus as SessionStatusType
 
 import typer
 from rich.console import Console
@@ -208,6 +212,101 @@ def daemon(
     app_config = load_config(config)
     configure(app_config)
     uvicorn.run(daemon_app, host="127.0.0.1", port=port)
+
+
+def _make_daemon_client(host: str, port: int) -> "DaemonClientType":
+    from meeting_minutes.daemon.client import DEFAULT_BASE_URL, DaemonClient
+
+    base_url = f"http://{host}:{port}" if (host, port) != ("127.0.0.1", 8765) else DEFAULT_BASE_URL
+    return DaemonClient(base_url)
+
+
+def _print_session_status(status: "SessionStatusType") -> None:
+    state_color = {
+        "idle": "white",
+        "running": "green",
+        "stopping": "yellow",
+        "failed": "red",
+    }.get(status.state, "white")
+    console.print(f"[bold]State:[/bold] [{state_color}]{status.state}[/{state_color}]")
+    if status.started_at:
+        console.print(f"[bold]Started:[/bold] {status.started_at}")
+    if status.elapsed_seconds:
+        console.print(f"[bold]Elapsed:[/bold] {status.elapsed_seconds}s")
+    if status.session_dir:
+        console.print(f"[bold]Session dir:[/bold] {status.session_dir}")
+    if status.transcript_path:
+        console.print(f"[bold]Transcript:[/bold] {status.transcript_path}")
+    for err in status.errors:
+        console.print(f"[red]Error:[/red] {err}")
+
+
+def _daemon_connect_error() -> None:
+    console.print(
+        "[red]daemon に接続できません。先に meeting-minutes daemon を起動してください。[/red]"
+    )  # noqa: E501
+
+
+@app.command()
+def start(
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port")] = 8765,
+    draft_interval_minutes: Annotated[
+        int, typer.Option("--draft-interval-minutes", help="0なら自動ドラフト生成なし")
+    ] = 0,
+) -> None:
+    """daemon の録音セッションを開始します。"""
+    import httpx
+
+    from meeting_minutes.daemon.schema import StartRequest
+
+    client = _make_daemon_client(host, port)
+    try:
+        session_status = client.start(StartRequest(draft_interval_minutes=draft_interval_minutes))
+    except httpx.ConnectError:
+        _daemon_connect_error()
+        raise typer.Exit(code=1) from None
+    except httpx.HTTPStatusError as exc:
+        console.print(f"[red]{exc.response.json().get('detail', str(exc))}[/red]")
+        raise typer.Exit(code=1) from exc
+    _print_session_status(session_status)
+
+
+@app.command()
+def stop(
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port")] = 8765,
+) -> None:
+    """daemon の録音セッションを停止します。"""
+    import httpx
+
+    client = _make_daemon_client(host, port)
+    try:
+        session_status = client.stop()
+    except httpx.ConnectError:
+        _daemon_connect_error()
+        raise typer.Exit(code=1) from None
+    except httpx.HTTPStatusError as exc:
+        console.print(f"[red]{exc.response.json().get('detail', str(exc))}[/red]")
+        raise typer.Exit(code=1) from exc
+    _print_session_status(session_status)
+
+
+@app.command()
+def status(
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port")] = 8765,
+) -> None:
+    """daemon の現在のセッション状態を表示します。"""
+    import httpx
+
+    client = _make_daemon_client(host, port)
+    try:
+        session_status = client.current()
+    except httpx.ConnectError:
+        _daemon_connect_error()
+        raise typer.Exit(code=1) from None
+    _print_session_status(session_status)
 
 
 if __name__ == "__main__":
