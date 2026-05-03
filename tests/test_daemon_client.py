@@ -174,6 +174,15 @@ class TestStartCommand:
         assert result.exit_code == 1
         assert "already running" in result.output
 
+    def test_exits_with_error_on_read_timeout(self, runner: CliRunner) -> None:
+        mock_client = MagicMock()
+        mock_client.start.side_effect = httpx.ReadTimeout("timed out")
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
+            result = runner.invoke(app, ["daemon", "start"])
+
+        assert result.exit_code == 1
+        assert "127.0.0.1:8765" in result.output
+
     def test_rejects_negative_draft_interval(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["daemon", "start", "--draft-interval-minutes", "-1"])
 

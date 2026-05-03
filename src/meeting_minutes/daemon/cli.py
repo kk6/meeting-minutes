@@ -46,11 +46,18 @@ def _print_session_status(status: "SessionStatusType") -> None:
 
 
 def _daemon_connect_error(host: str, port: int) -> None:
-    opts = "" if (host, port) == ("127.0.0.1", 8765) else f" --host {host} --port {port}"
-    _console.print(
-        f"[red]http://{host}:{port} に接続できません。"
-        f" 先に meeting-minutes daemon serve{opts} を起動してください。[/red]"
-    )
+    if host != "127.0.0.1":
+        # serve は常に 127.0.0.1 にバインドするため --host の提案はできない
+        _console.print(
+            f"[red]http://{host}:{port} に接続できません。"
+            " ターゲットホストで daemon serve が起動しているか確認してください。[/red]"
+        )
+    else:
+        port_opt = f" --port {port}" if port != 8765 else ""
+        _console.print(
+            f"[red]http://{host}:{port} に接続できません。"
+            f" 先に meeting-minutes daemon serve{port_opt} を起動してください。[/red]"
+        )
 
 
 def _http_error_detail(exc: "httpx.HTTPStatusError") -> str:
@@ -92,7 +99,7 @@ def daemon_start(
     client = _make_daemon_client(host, port)
     try:
         session_status = client.start(StartRequest(draft_interval_minutes=draft_interval_minutes))
-    except (httpx.ConnectError, httpx.ConnectTimeout):
+    except (httpx.ConnectError, httpx.TimeoutException):
         _daemon_connect_error(host, port)
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
