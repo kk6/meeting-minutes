@@ -47,8 +47,8 @@ app = FastAPI(
     title="meeting-minutes daemon",
     version="1.0",
     lifespan=_lifespan,
-    docs_url=None,
-    redoc_url=None,
+    docs_url="/docs",
+    redoc_url="/redoc",
     openapi_url=None,
 )
 
