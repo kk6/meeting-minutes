@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
+from meeting_minutes.config import AppConfig
 from meeting_minutes.daemon.schema import SessionStatus
 from meeting_minutes.daemon.server import app
 from meeting_minutes.daemon.session import SessionConflictError
@@ -32,6 +33,7 @@ def _stopping_status(session_id: str = "20240101_120000") -> SessionStatus:
 def fake_session(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     mock = MagicMock()
     monkeypatch.setattr("meeting_minutes.daemon.server._session", mock)
+    monkeypatch.setattr("meeting_minutes.daemon.server._config", AppConfig())
     return mock
 
 

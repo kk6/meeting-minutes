@@ -12,7 +12,8 @@ from meeting_minutes.config import AppConfig
 from meeting_minutes.daemon.schema import SessionStatus, StartRequest
 from meeting_minutes.daemon.session import LiveSession, SessionConflictError
 
-_LOCALHOST_ORIGIN_RE = re.compile(r"https?://(localhost|127\.0\.0\.1)(:\d+)?$")
+_LOCALHOST_ORIGIN_PATTERN = r"https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+_LOCALHOST_ORIGIN_RE = re.compile(_LOCALHOST_ORIGIN_PATTERN)
 
 _session = LiveSession()
 _config: AppConfig | None = None
@@ -26,7 +27,7 @@ def configure(config: AppConfig) -> None:
 
 def _get_config() -> AppConfig:
     if _config is None:
-        return AppConfig()
+        raise RuntimeError("daemon not configured: call configure() before starting")
     return _config
 
 
@@ -56,7 +57,7 @@ app = FastAPI(
 # 許可されていないオリジンからの実際のリクエストはブラウザにブロックされる。
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origin_regex=_LOCALHOST_ORIGIN_PATTERN,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
@@ -67,7 +68,7 @@ app.add_middleware(
     response_model=SessionStatus,
     status_code=201,
     dependencies=[Depends(_require_local_origin)],
-)  # noqa: E501
+)
 def start_session(req: StartRequest | None = None) -> SessionStatus:
     """録音セッションを開始する。既に実行中の場合は 409 を返す。"""
     if req is None:

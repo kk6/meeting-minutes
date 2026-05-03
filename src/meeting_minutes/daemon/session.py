@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 SessionState = Literal["idle", "running", "stopping", "failed"]
 
+# モデルロード待ちではなく、デバイス未検出などの同期的な起動失敗を
+# キャッチするための短い窓。長いロード時間を待つ目的ではない。
 _STARTUP_TIMEOUT = 2.0
 
 
@@ -57,16 +59,16 @@ class LiveSession:
             self._errors = []
             self._stop_event.clear()
             self._state = "running"
+            # セッションごとに新しい Event を生成することで、前セッションのスレッドが
+            # 遅れて set() しても新セッションに影響しないようにする。
+            startup_event = threading.Event()
+            self._thread = threading.Thread(
+                target=self._run,
+                args=(config, draft_interval_minutes, startup_event),
+                daemon=True,
+                name=f"live-session-{self._session_id}",
+            )
 
-        # セッションごとに新しい Event を生成することで、前セッションのスレッドが
-        # 遅れて set() しても新セッションに影響しないようにする。
-        startup_event = threading.Event()
-        self._thread = threading.Thread(
-            target=self._run,
-            args=(config, draft_interval_minutes, startup_event),
-            daemon=True,
-            name=f"live-session-{self._session_id}",
-        )
         try:
             self._thread.start()
         except OSError:
@@ -82,7 +84,9 @@ class LiveSession:
         return self._snapshot()
 
     def stop(self) -> SessionStatus:
-        """実行中のセッションに停止を要求する。セッションがなければ SessionConflictError を送出する。"""  # noqa: E501
+        """実行中のセッションに停止を要求する。
+        セッションがなければ SessionConflictError を送出する。
+        """
         with self._lock:
             if self._state != "running":
                 raise SessionConflictError("no session is running")
