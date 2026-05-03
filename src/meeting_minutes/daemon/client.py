@@ -18,7 +18,8 @@ class DaemonClient:
         self._base_url = base_url.rstrip("/")
 
     def _client(self) -> httpx.Client:
-        return httpx.Client(base_url=self._base_url)
+        # trust_env=False でシステムの HTTP_PROXY 設定をバイパスする
+        return httpx.Client(base_url=self._base_url, trust_env=False)
 
     def start(self, req: StartRequest) -> SessionStatus:
         """録音セッションを開始する。"""

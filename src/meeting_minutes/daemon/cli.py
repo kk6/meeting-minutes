@@ -45,8 +45,11 @@ def _print_session_status(status: "SessionStatusType") -> None:
         _console.print(f"[red]Error:[/red] {err}")
 
 
+_LOCAL_HOSTS = {"127.0.0.1", "localhost"}
+
+
 def _daemon_connect_error(host: str, port: int) -> None:
-    if host != "127.0.0.1":
+    if host not in _LOCAL_HOSTS:
         # serve は 127.0.0.1 にのみバインドするためリモートには直接届かない
         _console.print(
             f"[red]http://{host}:{port} に接続できません。"
