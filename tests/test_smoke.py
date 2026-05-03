@@ -1,3 +1,4 @@
+import re
 from unittest.mock import patch
 
 from typer.testing import CliRunner
@@ -5,18 +6,22 @@ from typer.testing import CliRunner
 from meeting_minutes.cli import app
 
 
+def _strip_ansi(text: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*[mGKH]", "", text)
+
+
 def test_cli_help() -> None:
     result = CliRunner().invoke(app, ["--help"])
 
     assert result.exit_code == 0
-    assert "devices" in result.output
+    assert "devices" in _strip_ansi(result.output)
 
 
 def test_daemon_help() -> None:
     result = CliRunner().invoke(app, ["daemon", "--help"])
 
     assert result.exit_code == 0
-    assert "--port" in result.output
+    assert "--port" in _strip_ansi(result.output)
 
 
 def test_daemon_wires_config_and_runs() -> None:

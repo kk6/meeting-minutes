@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 SessionState = Literal["idle", "running", "stopping", "failed"]
 
+_STARTUP_TIMEOUT = 2.0
+
 
 class SessionConflictError(RuntimeError):
     """セッションの状態が操作と競合するときに送出する。"""
@@ -33,6 +35,7 @@ class LiveSession:
     _errors: list[str] = field(default_factory=list, init=False)
     _thread: threading.Thread | None = field(default=None, init=False)
     _stop_event: threading.Event = field(default_factory=threading.Event, init=False)
+    _startup_event: threading.Event = field(default_factory=threading.Event, init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
 
     def start(
@@ -42,7 +45,7 @@ class LiveSession:
         overrides: dict[str, object] | None = None,
         draft_interval_minutes: int = 0,
     ) -> SessionStatus:
-        """録音セッションを開始する。既に実行中なら RuntimeError を送出する。"""
+        """録音セッションを開始する。既に実行中なら SessionConflictError を送出する。"""
         with self._lock:
             if self._state in ("running", "stopping"):
                 raise SessionConflictError("session already running")
@@ -54,6 +57,7 @@ class LiveSession:
             self._transcript_path = None
             self._errors = []
             self._stop_event.clear()
+            self._startup_event.clear()
             self._state = "running"
 
         self._thread = threading.Thread(
@@ -70,10 +74,14 @@ class LiveSession:
                 self._state = "failed"
                 self._errors.append(traceback.format_exc())
             raise
+
+        # デバイス未検出・設定不正などの同期的な起動失敗を短時間待って反映させる。
+        # タイムアウト後も state が running なら非同期的に起動中と見なし、そのまま返す。
+        self._startup_event.wait(timeout=_STARTUP_TIMEOUT)
         return self._snapshot()
 
     def stop(self) -> SessionStatus:
-        """実行中のセッションに停止を要求する。セッションがなければ RuntimeError を送出する。"""
+        """実行中のセッションに停止を要求する。セッションがなければ SessionConflictError を送出する。"""  # noqa: E501
         with self._lock:
             if self._state != "running":
                 raise SessionConflictError("no session is running")
@@ -111,6 +119,7 @@ class LiveSession:
         with self._lock:
             self._session_dir = session_dir
             self._transcript_path = transcript_path
+        self._startup_event.set()
 
     def _freeze_elapsed(self) -> None:
         """セッション終了時に経過秒数を確定し、started_at をクリアする。"""
@@ -132,8 +141,11 @@ class LiveSession:
                 self._errors.append(traceback.format_exc())
                 self._freeze_elapsed()
                 self._state = "failed"
+            self._startup_event.set()
             return
         with self._lock:
             if self._state != "failed":
                 self._freeze_elapsed()
                 self._state = "idle"
+        # on_session_ready が呼ばれなかった場合のフォールバック（モック等）
+        self._startup_event.set()
