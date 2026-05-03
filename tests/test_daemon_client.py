@@ -128,7 +128,7 @@ class TestStartCommand:
     def test_prints_running_state_on_success(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.start.return_value = _running_status()
-        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
             result = runner.invoke(app, ["daemon", "start"])
 
         assert result.exit_code == 0
@@ -137,7 +137,7 @@ class TestStartCommand:
     def test_exits_with_error_when_daemon_not_running(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.start.side_effect = httpx.ConnectError("connection refused")
-        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
             result = runner.invoke(app, ["daemon", "start"])
 
         assert result.exit_code == 1
@@ -146,7 +146,7 @@ class TestStartCommand:
     def test_exits_with_error_on_timeout(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.start.side_effect = httpx.ConnectTimeout("timed out")
-        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
             result = runner.invoke(app, ["daemon", "start"])
 
         assert result.exit_code == 1
@@ -160,7 +160,7 @@ class TestStartCommand:
             response=MagicMock(json=lambda: {"detail": "session already running"}),
         )
         mock_client.start.side_effect = http_err
-        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
             result = runner.invoke(app, ["daemon", "start"])
 
         assert result.exit_code == 1
@@ -174,7 +174,7 @@ class TestStartCommand:
     def test_forwards_draft_interval_to_start_request(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.start.return_value = _running_status()
-        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
             result = runner.invoke(app, ["daemon", "start", "--draft-interval-minutes", "5"])
 
         assert result.exit_code == 0
@@ -186,7 +186,7 @@ class TestStopCommand:
     def test_prints_stopping_state_on_success(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.stop.return_value = _stopping_status()
-        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
             result = runner.invoke(app, ["daemon", "stop"])
 
         assert result.exit_code == 0
@@ -195,7 +195,7 @@ class TestStopCommand:
     def test_exits_with_error_when_daemon_not_running(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.stop.side_effect = httpx.ConnectError("connection refused")
-        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
             result = runner.invoke(app, ["daemon", "stop"])
 
         assert result.exit_code == 1
@@ -206,7 +206,7 @@ class TestStatusCommand:
     def test_prints_idle_state_when_no_session(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.current.return_value = _idle_status()
-        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
             result = runner.invoke(app, ["daemon", "status"])
 
         assert result.exit_code == 0
@@ -215,7 +215,7 @@ class TestStatusCommand:
     def test_prints_running_state_with_elapsed(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.current.return_value = _running_status()
-        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
             result = runner.invoke(app, ["daemon", "status"])
 
         assert result.exit_code == 0
@@ -225,7 +225,7 @@ class TestStatusCommand:
     def test_exits_with_error_when_daemon_not_running(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.current.side_effect = httpx.ConnectError("connection refused")
-        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
             result = runner.invoke(app, ["daemon", "status"])
 
         assert result.exit_code == 1

@@ -22,7 +22,7 @@ Guidance for coding agents working in this repository.
 
 Important modules:
 
-- `cli.py`: Typer command definitions and CLI override wiring
+- `cli.py`: Typer command definitions and CLI override wiring. **Keep this file focused on command registration only.** Helper functions and business logic for a command group belong in the relevant subpackage (e.g. `daemon/cli.py` for `daemon` subcommands). Avoid adding private helper functions directly to `cli.py`.
 - `live.py`: realtime recording/transcription loop
 - `audio_stream.py`: input stream buffering
 - `transcribe.py`: faster-whisper wrapper
