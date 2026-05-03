@@ -1,7 +1,7 @@
 import numpy as np
 
 from meeting_minutes.config import TranscriptionConfig
-from meeting_minutes.transcribe import WhisperTranscriber
+from meeting_minutes.transcription.transcribe import WhisperTranscriber
 
 
 class FakeWhisperSegment:

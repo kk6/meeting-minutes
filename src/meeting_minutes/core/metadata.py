@@ -7,7 +7,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from meeting_minutes.config import AppConfig
-from meeting_minutes.devices import InputDevice
+from meeting_minutes.audio.devices import InputDevice
 
 
 class SessionMetadata(BaseModel):

@@ -5,7 +5,7 @@ import pytest
 
 from meeting_minutes.config import AppConfig
 from meeting_minutes.errors import MeetingMinutesError
-from meeting_minutes.summarize import generate_minutes, split_text
+from meeting_minutes.minutes.summarize import generate_minutes, split_text
 
 
 def test_split_text_uses_overlap() -> None:
@@ -45,7 +45,7 @@ def test_generate_minutes_combines_multiple_transcripts_in_order(
             prompts.append(prompt)
             return "generated minutes"
 
-    monkeypatch.setattr("meeting_minutes.summarize.OllamaClient", FakeOllamaClient)
+    monkeypatch.setattr("meeting_minutes.minutes.summarize.OllamaClient", FakeOllamaClient)
 
     output = generate_minutes([first, second], "final", None, AppConfig())
 

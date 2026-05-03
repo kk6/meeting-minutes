@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from meeting_minutes.config import AppConfig
-from meeting_minutes.devices import InputDevice
+from meeting_minutes.audio.devices import InputDevice
 
 
 def create_session_dir(base_dir: Path, started_at: datetime) -> Path:

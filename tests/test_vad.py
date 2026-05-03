@@ -1,7 +1,7 @@
 import numpy as np
 
 from meeting_minutes.config import VadConfig
-from meeting_minutes.vad import SpeechSegmenter
+from meeting_minutes.audio.vad import SpeechSegmenter
 
 
 def test_speech_segmenter_emits_speech_after_trailing_silence() -> None:

@@ -3,7 +3,7 @@ from types import TracebackType
 
 import pytest
 
-from meeting_minutes.clean import _escape_transcript_tag, clean_transcript
+from meeting_minutes.minutes.clean import _escape_transcript_tag, clean_transcript
 from meeting_minutes.config import AppConfig, CleaningConfig, SummarizationConfig
 from meeting_minutes.errors import MeetingMinutesError
 
@@ -57,7 +57,7 @@ def test_clean_transcript_writes_output_to_default_path(
     transcript = tmp_path / "transcript_live.md"
     transcript.write_text("[00:00:01 - 00:00:02] hello\n", encoding="utf-8")
     client = FakeOllamaClient(None)
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
     output = clean_transcript([transcript], None, AppConfig())
 
@@ -76,7 +76,7 @@ def test_clean_transcript_combines_multiple_files_in_order(
     first.write_text("[00:00:01 - 00:00:02] first line\n", encoding="utf-8")
     second.write_text("[00:20:00 - 00:20:01] second line\n", encoding="utf-8")
     client = FakeOllamaClient(None)
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
     clean_transcript([first, second], None, AppConfig())
 
@@ -98,7 +98,7 @@ def test_clean_transcript_sends_each_chunk_to_ollama(
     transcript = tmp_path / "transcript_live.md"
     transcript.write_text(line * 100, encoding="utf-8")
     client = FakeOllamaClient(None)
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
     config = AppConfig(cleaning=CleaningConfig(chunk_size=3000))
     clean_transcript([transcript], None, config)
@@ -136,7 +136,7 @@ def test_clean_transcript_joins_chunks_with_single_newline_boundary(
             StrippedResponseClient.call_count += 1
             return f"[00:00:0{StrippedResponseClient.call_count} - 00:00:0{StrippedResponseClient.call_count + 1}] cleaned line"
 
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", StrippedResponseClient)
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", StrippedResponseClient)
 
     config = AppConfig(cleaning=CleaningConfig(chunk_size=3000))
     output = clean_transcript([transcript], None, config)
@@ -155,7 +155,7 @@ def test_clean_transcript_uses_transcript_xml_tag_in_prompt(
     transcript = tmp_path / "transcript_live.md"
     transcript.write_text("[00:00:01 - 00:00:02] hello world\n", encoding="utf-8")
     client = FakeOllamaClient(None)
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
     clean_transcript([transcript], None, AppConfig())
 
@@ -177,7 +177,7 @@ def test_clean_transcript_respects_output_path_option(
     transcript.write_text("[00:00:01 - 00:00:02] hello\n", encoding="utf-8")
     custom_output = tmp_path / "custom" / "out.md"
     client = FakeOllamaClient(None)
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
     result = clean_transcript([transcript], custom_output, AppConfig())
 
@@ -192,7 +192,7 @@ def test_clean_transcript_uses_output_filename_from_config(
     transcript = tmp_path / "transcript_live.md"
     transcript.write_text("[00:00:01 - 00:00:02] hello\n", encoding="utf-8")
     client = FakeOllamaClient(None)
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
     config = AppConfig(cleaning=CleaningConfig(output_filename="my_clean.md"))
     result = clean_transcript([transcript], None, config)
@@ -227,7 +227,7 @@ def test_clean_transcript_passes_summarization_config_to_ollama(
         def generate(self, _prompt: str) -> str:
             return "cleaned"
 
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", CapturingFactory)
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", CapturingFactory)
 
     app_config = AppConfig(summarization=SummarizationConfig(ollama_model="test-model"))
     clean_transcript([transcript], None, app_config)
@@ -246,7 +246,7 @@ def test_clean_transcript_sends_single_request_when_content_fits_in_one_chunk(
         "[00:00:01 - 00:00:02] hello\n[00:00:02 - 00:00:03] world\n", encoding="utf-8"
     )
     client = FakeOllamaClient(None)
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
     config = AppConfig(cleaning=CleaningConfig(chunk_size=1000))
     clean_transcript([transcript], None, config)
@@ -262,7 +262,7 @@ def test_clean_transcript_never_splits_mid_line(
     transcript = tmp_path / "transcript_live.md"
     transcript.write_text(line * 10, encoding="utf-8")  # 340 chars
     client = FakeOllamaClient(None)
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
     config = AppConfig(cleaning=CleaningConfig(chunk_size=100))
     clean_transcript([transcript], None, config)
@@ -284,7 +284,7 @@ def test_clean_transcript_raises_when_line_exceeds_chunk_size(
     transcript = tmp_path / "transcript_live.md"
     transcript.write_text("x" * 101 + "\n", encoding="utf-8")
     monkeypatch.setattr(
-        "meeting_minutes.clean.OllamaClient", _make_fake_client_factory(FakeOllamaClient(None))
+        "meeting_minutes.minutes.clean.OllamaClient", _make_fake_client_factory(FakeOllamaClient(None))
     )
 
     config = AppConfig(cleaning=CleaningConfig(chunk_size=100))
@@ -300,7 +300,7 @@ def test_clean_transcript_includes_all_lines_across_chunks(
     transcript = tmp_path / "transcript_live.md"
     transcript.write_text("".join(lines), encoding="utf-8")
     client = FakeOllamaClient(None)
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
     config = AppConfig(cleaning=CleaningConfig(chunk_size=200))
     clean_transcript([transcript], None, config)
@@ -317,7 +317,7 @@ def test_clean_transcript_handles_file_without_newlines(
     transcript = tmp_path / "transcript_live.md"
     transcript.write_text("no newline here", encoding="utf-8")
     client = FakeOllamaClient(None)
-    monkeypatch.setattr("meeting_minutes.clean.OllamaClient", _make_fake_client_factory(client))
+    monkeypatch.setattr("meeting_minutes.minutes.clean.OllamaClient", _make_fake_client_factory(client))
 
     clean_transcript([transcript], None, AppConfig())
 

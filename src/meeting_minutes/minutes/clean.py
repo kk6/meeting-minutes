@@ -5,9 +5,9 @@ from pathlib import Path
 
 from meeting_minutes.config import AppConfig
 from meeting_minutes.errors import MeetingMinutesError
-from meeting_minutes.ollama_client import OllamaClient
-from meeting_minutes.prompts import CLEAN_PROMPT
-from meeting_minutes.summarize import read_transcripts
+from meeting_minutes.minutes.ollama_client import OllamaClient
+from meeting_minutes.minutes.prompts import CLEAN_PROMPT
+from meeting_minutes.minutes.summarize import read_transcripts
 
 
 def _escape_transcript_tag(text: str) -> str:

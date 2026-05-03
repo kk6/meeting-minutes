@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from meeting_minutes.config import VocabularyConfig
-from meeting_minutes.vocabulary import (
+from meeting_minutes.core.vocabulary import (
     RecentTranscriptContext,
     Vocabulary,
     build_contextual_initial_prompt,

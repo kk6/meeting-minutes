@@ -1,6 +1,6 @@
 import pytest
 
-from meeting_minutes.dedupe import TranscriptDedupe
+from meeting_minutes.transcription.dedupe import TranscriptDedupe
 
 
 def test_dedupe_skips_exact_duplicates() -> None:
