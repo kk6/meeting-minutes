@@ -10,26 +10,26 @@ from pathlib import Path
 import numpy as np
 from rich.console import Console
 
-from meeting_minutes.audio_output import WavAudioWriter
-from meeting_minutes.audio_stream import audio_chunks
+from meeting_minutes.audio.writer import WavAudioWriter
+from meeting_minutes.audio.stream import audio_chunks
 from meeting_minutes.config import AppConfig
-from meeting_minutes.dedupe import TranscriptDedupe
-from meeting_minutes.devices import resolve_input_device
+from meeting_minutes.transcription.dedupe import TranscriptDedupe
+from meeting_minutes.audio.devices import resolve_input_device
 from meeting_minutes.errors import MeetingMinutesError
-from meeting_minutes.live_transcription import SpeechTranscriptionRunner
-from meeting_minutes.metadata import build_metadata, write_metadata
-from meeting_minutes.output import (
+from meeting_minutes.transcription.live_transcription import SpeechTranscriptionRunner
+from meeting_minutes.core.metadata import build_metadata, write_metadata
+from meeting_minutes.core.output import (
     append_transcript_segment,
     create_session_dir,
     format_elapsed,
     init_transcript,
 )
-from meeting_minutes.preprocess import AudioPreprocessor
-from meeting_minutes.summarize import generate_minutes
-from meeting_minutes.transcribe import TranscriptionSegment, WhisperTranscriber
-from meeting_minutes.transcript_filter import TranscriptFilter, TranscriptRejectionStats
-from meeting_minutes.vad import SpeechSegmenter
-from meeting_minutes.vocabulary import (
+from meeting_minutes.audio.preprocess import AudioPreprocessor
+from meeting_minutes.minutes.summarize import generate_minutes
+from meeting_minutes.transcription.transcribe import TranscriptionSegment, WhisperTranscriber
+from meeting_minutes.transcription.filter import TranscriptFilter, TranscriptRejectionStats
+from meeting_minutes.audio.vad import SpeechSegmenter
+from meeting_minutes.core.vocabulary import (
     RecentTranscriptContext,
     Vocabulary,
     build_contextual_initial_prompt,

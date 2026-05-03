@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from meeting_minutes.output import append_transcript_segment, format_elapsed
+from meeting_minutes.core.output import append_transcript_segment, format_elapsed
 
 
 def test_format_elapsed_zero_pads_hms() -> None:

@@ -3,7 +3,7 @@
 from collections import deque
 from difflib import SequenceMatcher
 
-from meeting_minutes.transcript_filter import TranscriptRejectionStats, normalize_transcript_text
+from meeting_minutes.transcription.filter import TranscriptRejectionStats, normalize_transcript_text
 
 
 class TranscriptDedupe:

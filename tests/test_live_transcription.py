@@ -1,11 +1,11 @@
 import numpy as np
 
 from meeting_minutes.config import TranscriptFilterConfig, VadConfig
-from meeting_minutes.dedupe import TranscriptDedupe
-from meeting_minutes.live_transcription import SpeechTranscriptionRunner
-from meeting_minutes.transcribe import TranscriptionSegment
-from meeting_minutes.transcript_filter import TranscriptFilter
-from meeting_minutes.vad import SpeechSegmenter
+from meeting_minutes.transcription.dedupe import TranscriptDedupe
+from meeting_minutes.transcription.live_transcription import SpeechTranscriptionRunner
+from meeting_minutes.transcription.transcribe import TranscriptionSegment
+from meeting_minutes.transcription.filter import TranscriptFilter
+from meeting_minutes.audio.vad import SpeechSegmenter
 
 
 class FakeTranscriber:

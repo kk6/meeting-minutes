@@ -7,7 +7,7 @@ import pytest
 
 from meeting_minutes.config import SummarizationConfig
 from meeting_minutes.errors import OllamaError
-from meeting_minutes.ollama_client import OllamaClient
+from meeting_minutes.minutes.ollama_client import OllamaClient
 
 
 def _make_response(body: dict) -> httpx.Response:

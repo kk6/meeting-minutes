@@ -7,11 +7,11 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from meeting_minutes.checks import run_checks
+from meeting_minutes.core.checks import run_checks
 from meeting_minutes.config import apply_overrides, load_config
-from meeting_minutes.devices import list_input_devices
+from meeting_minutes.audio.devices import list_input_devices
 from meeting_minutes.errors import MeetingMinutesError
-from meeting_minutes.summarize import MinutesMode
+from meeting_minutes.minutes.summarize import MinutesMode
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -39,7 +39,7 @@ def _generate_minutes_command(
     output: Path | None,
     config: Path | None,
 ) -> None:
-    from meeting_minutes.summarize import generate_minutes
+    from meeting_minutes.minutes.summarize import generate_minutes
 
     app_config = load_config(config)
     try:
@@ -126,7 +126,7 @@ def live(
     ] = 0,
 ) -> None:
     """リアルタイム文字起こしを開始します。"""
-    from meeting_minutes.live import run_live
+    from meeting_minutes.transcription.live import run_live
 
     app_config = apply_overrides(
         load_config(config),
@@ -183,7 +183,7 @@ def clean(
     config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
 ) -> None:
     """文字起こしを整形して Markdown として保存します。"""
-    from meeting_minutes.clean import clean_transcript
+    from meeting_minutes.minutes.clean import clean_transcript
 
     app_config = load_config(config)
     try:
