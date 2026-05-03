@@ -120,6 +120,32 @@ class TestDaemonClient:
 
 
 # ---------------------------------------------------------------------------
+# _make_daemon_client の URL 組み立てテスト
+# ---------------------------------------------------------------------------
+
+
+class TestMakeDaemonClient:
+    def test_uses_default_base_url_for_default_host_and_port(self) -> None:
+        from meeting_minutes.cli import _make_daemon_client
+        from meeting_minutes.daemon.client import DEFAULT_BASE_URL
+
+        client = _make_daemon_client("127.0.0.1", 8765)
+        assert client._base_url == DEFAULT_BASE_URL.rstrip("/")
+
+    def test_builds_custom_url_for_non_default_host(self) -> None:
+        from meeting_minutes.cli import _make_daemon_client
+
+        client = _make_daemon_client("192.168.1.10", 8765)
+        assert client._base_url == "http://192.168.1.10:8765"
+
+    def test_builds_custom_url_for_non_default_port(self) -> None:
+        from meeting_minutes.cli import _make_daemon_client
+
+        client = _make_daemon_client("127.0.0.1", 9000)
+        assert client._base_url == "http://127.0.0.1:9000"
+
+
+# ---------------------------------------------------------------------------
 # CLI コマンドのテスト（_make_daemon_client をモックして CLI 層を検証する）
 # ---------------------------------------------------------------------------
 
@@ -141,7 +167,16 @@ class TestStartCommand:
             result = runner.invoke(app, ["start"])
 
         assert result.exit_code == 1
-        assert "daemon" in result.output
+        assert "127.0.0.1:8765" in result.output
+
+    def test_exits_with_error_on_timeout(self, runner: CliRunner) -> None:
+        mock_client = MagicMock()
+        mock_client.start.side_effect = httpx.ConnectTimeout("timed out")
+        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+            result = runner.invoke(app, ["start"])
+
+        assert result.exit_code == 1
+        assert "127.0.0.1:8765" in result.output
 
     def test_exits_with_error_on_409(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
@@ -180,7 +215,7 @@ class TestStopCommand:
             result = runner.invoke(app, ["stop"])
 
         assert result.exit_code == 1
-        assert "daemon" in result.output
+        assert "127.0.0.1:8765" in result.output
 
 
 class TestStatusCommand:
@@ -210,4 +245,4 @@ class TestStatusCommand:
             result = runner.invoke(app, ["status"])
 
         assert result.exit_code == 1
-        assert "daemon" in result.output
+        assert "127.0.0.1:8765" in result.output

@@ -243,9 +243,10 @@ def _print_session_status(status: "SessionStatusType") -> None:
         console.print(f"[red]Error:[/red] {err}")
 
 
-def _daemon_connect_error() -> None:
+def _daemon_connect_error(host: str, port: int) -> None:
     console.print(
-        "[red]daemon に接続できません。先に meeting-minutes daemon を起動してください。[/red]"
+        f"[red]http://{host}:{port} に接続できません。"
+        "daemon が起動しているか確認してください。[/red]"
     )
 
 
@@ -272,8 +273,8 @@ def start(
     client = _make_daemon_client(host, port)
     try:
         session_status = client.start(StartRequest(draft_interval_minutes=draft_interval_minutes))
-    except httpx.ConnectError:
-        _daemon_connect_error()
+    except httpx.RequestError:
+        _daemon_connect_error(host, port)
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
         console.print(f"[red]{_http_error_detail(exc)}[/red]")
@@ -292,8 +293,8 @@ def stop(
     client = _make_daemon_client(host, port)
     try:
         session_status = client.stop()
-    except httpx.ConnectError:
-        _daemon_connect_error()
+    except httpx.RequestError:
+        _daemon_connect_error(host, port)
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
         console.print(f"[red]{_http_error_detail(exc)}[/red]")
@@ -312,8 +313,8 @@ def status(
     client = _make_daemon_client(host, port)
     try:
         session_status = client.current()
-    except httpx.ConnectError:
-        _daemon_connect_error()
+    except httpx.RequestError:
+        _daemon_connect_error(host, port)
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
         console.print(f"[red]{_http_error_detail(exc)}[/red]")
