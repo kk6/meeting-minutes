@@ -45,6 +45,10 @@ typecheck:
 test *args:
     uv run pytest {{ args }}
 
+# Lint・format・型検査のみ（テストなし）
+[group('dev')]
+check-lint: fmt-check lint-check typecheck
+
 # Run all quality checks without auto-fix (for CI / pre-push)
 [group('dev')]
 check: fmt-check lint-check typecheck test
