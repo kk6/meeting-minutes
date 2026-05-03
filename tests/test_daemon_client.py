@@ -223,6 +223,15 @@ class TestStopCommand:
         assert result.exit_code == 1
         assert "no session running" in result.output
 
+    def test_exits_with_error_on_read_timeout(self, runner: CliRunner) -> None:
+        mock_client = MagicMock()
+        mock_client.stop.side_effect = httpx.ReadTimeout("timed out")
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
+            result = runner.invoke(app, ["daemon", "stop"])
+
+        assert result.exit_code == 1
+        assert "127.0.0.1:8765" in result.output
+
 
 class TestStatusCommand:
     def test_prints_idle_state_when_no_session(self, runner: CliRunner) -> None:
@@ -243,6 +252,15 @@ class TestStatusCommand:
         assert result.exit_code == 0
         assert "running" in result.output
         assert "30s" in result.output
+
+    def test_exits_with_error_on_read_timeout(self, runner: CliRunner) -> None:
+        mock_client = MagicMock()
+        mock_client.current.side_effect = httpx.ReadTimeout("timed out")
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
+            result = runner.invoke(app, ["daemon", "status"])
+
+        assert result.exit_code == 1
+        assert "127.0.0.1:8765" in result.output
 
     def test_prints_error_lines_when_session_failed(self, runner: CliRunner) -> None:
         mock_client = MagicMock()

@@ -111,7 +111,7 @@ def daemon_stop(
     client = _make_daemon_client(host, port)
     try:
         session_status = client.stop()
-    except (httpx.ConnectError, httpx.ConnectTimeout):
+    except (httpx.ConnectError, httpx.TimeoutException):
         _daemon_connect_error(host, port)
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
@@ -131,7 +131,7 @@ def daemon_status(
     client = _make_daemon_client(host, port)
     try:
         session_status = client.current()
-    except (httpx.ConnectError, httpx.ConnectTimeout):
+    except (httpx.ConnectError, httpx.TimeoutException):
         _daemon_connect_error(host, port)
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
