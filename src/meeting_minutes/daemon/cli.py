@@ -1,5 +1,6 @@
 """daemon サブコマンド群の定義。"""
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
@@ -19,10 +20,9 @@ _console = Console()
 
 
 def _make_daemon_client(host: str, port: int) -> "DaemonClientType":
-    from meeting_minutes.daemon.client import DEFAULT_BASE_URL, DaemonClient
+    from meeting_minutes.daemon.client import DaemonClient
 
-    base_url = f"http://{host}:{port}" if (host, port) != ("127.0.0.1", 8765) else DEFAULT_BASE_URL
-    return DaemonClient(base_url)
+    return DaemonClient(f"http://{host}:{port}")
 
 
 def _print_session_status(status: "SessionStatusType") -> None:
@@ -78,6 +78,28 @@ def _http_error_detail(exc: "httpx.HTTPStatusError") -> str:
         return str(exc)
 
 
+def _invoke_daemon(
+    host: str,
+    port: int,
+    action: Callable[["DaemonClientType"], "SessionStatusType"],
+) -> "SessionStatusType":
+    """daemon API 呼び出しの共通例外処理。CLI 層のエラー表示と Exit を一元化する。"""
+    import httpx
+
+    client = _make_daemon_client(host, port)
+    try:
+        return action(client)
+    except httpx.ConnectError:
+        _daemon_connect_error(host, port)
+        raise typer.Exit(code=1) from None
+    except httpx.TimeoutException:
+        _daemon_timeout_error(host, port)
+        raise typer.Exit(code=1) from None
+    except httpx.HTTPStatusError as exc:
+        _console.print(f"[red]{_http_error_detail(exc)}[/red]")
+        raise typer.Exit(code=1) from exc
+
+
 @daemon_app.command("serve")
 def daemon_serve(
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
@@ -103,23 +125,10 @@ def daemon_start(
     ] = 0,
 ) -> None:
     """録音セッションを開始します。"""
-    import httpx
-
     from meeting_minutes.daemon.schema import StartRequest
 
-    client = _make_daemon_client(host, port)
-    try:
-        session_status = client.start(StartRequest(draft_interval_minutes=draft_interval_minutes))
-    except httpx.ConnectError:
-        _daemon_connect_error(host, port)
-        raise typer.Exit(code=1) from None
-    except httpx.TimeoutException:
-        _daemon_timeout_error(host, port)
-        raise typer.Exit(code=1) from None
-    except httpx.HTTPStatusError as exc:
-        _console.print(f"[red]{_http_error_detail(exc)}[/red]")
-        raise typer.Exit(code=1) from exc
-    _print_session_status(session_status)
+    req = StartRequest(draft_interval_minutes=draft_interval_minutes)
+    _print_session_status(_invoke_daemon(host, port, lambda c: c.start(req)))
 
 
 @daemon_app.command("stop")
@@ -128,21 +137,7 @@ def daemon_stop(
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
 ) -> None:
     """録音セッションを停止します。"""
-    import httpx
-
-    client = _make_daemon_client(host, port)
-    try:
-        session_status = client.stop()
-    except httpx.ConnectError:
-        _daemon_connect_error(host, port)
-        raise typer.Exit(code=1) from None
-    except httpx.TimeoutException:
-        _daemon_timeout_error(host, port)
-        raise typer.Exit(code=1) from None
-    except httpx.HTTPStatusError as exc:
-        _console.print(f"[red]{_http_error_detail(exc)}[/red]")
-        raise typer.Exit(code=1) from exc
-    _print_session_status(session_status)
+    _print_session_status(_invoke_daemon(host, port, lambda c: c.stop()))
 
 
 @daemon_app.command("status")
@@ -151,18 +146,4 @@ def daemon_status(
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
 ) -> None:
     """現在のセッション状態を表示します。"""
-    import httpx
-
-    client = _make_daemon_client(host, port)
-    try:
-        session_status = client.current()
-    except httpx.ConnectError:
-        _daemon_connect_error(host, port)
-        raise typer.Exit(code=1) from None
-    except httpx.TimeoutException:
-        _daemon_timeout_error(host, port)
-        raise typer.Exit(code=1) from None
-    except httpx.HTTPStatusError as exc:
-        _console.print(f"[red]{_http_error_detail(exc)}[/red]")
-        raise typer.Exit(code=1) from exc
-    _print_session_status(session_status)
+    _print_session_status(_invoke_daemon(host, port, lambda c: c.current()))
