@@ -201,6 +201,20 @@ class TestStopCommand:
         assert result.exit_code == 1
         assert "127.0.0.1:8765" in result.output
 
+    def test_exits_with_error_on_409(self, runner: CliRunner) -> None:
+        mock_client = MagicMock()
+        http_err = httpx.HTTPStatusError(
+            "409",
+            request=MagicMock(),
+            response=MagicMock(json=lambda: {"detail": "no session running"}),
+        )
+        mock_client.stop.side_effect = http_err
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
+            result = runner.invoke(app, ["daemon", "stop"])
+
+        assert result.exit_code == 1
+        assert "no session running" in result.output
+
 
 class TestStatusCommand:
     def test_prints_idle_state_when_no_session(self, runner: CliRunner) -> None:

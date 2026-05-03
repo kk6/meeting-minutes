@@ -55,7 +55,7 @@ def _daemon_connect_error(host: str, port: int) -> None:
 def _http_error_detail(exc: "httpx.HTTPStatusError") -> str:
     try:
         return str(exc.response.json().get("detail", exc))
-    except Exception:
+    except (ValueError, AttributeError):
         return str(exc)
 
 
