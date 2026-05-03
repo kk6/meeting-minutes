@@ -80,7 +80,7 @@ def _http_error_detail(exc: "httpx.HTTPStatusError") -> str:
 
 @daemon_app.command("serve")
 def daemon_serve(
-    port: Annotated[int, typer.Option("--port")] = 8765,
+    port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
     config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
 ) -> None:
     """ローカル制御サーバを起動します（Ctrl+C で停止）。127.0.0.1 のみに bind します。"""
@@ -97,7 +97,7 @@ def daemon_serve(
 @daemon_app.command("start")
 def daemon_start(
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
-    port: Annotated[int, typer.Option("--port")] = 8765,
+    port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
     draft_interval_minutes: Annotated[
         int, typer.Option("--draft-interval-minutes", help="0なら自動ドラフト生成なし", min=0)
     ] = 0,
@@ -125,7 +125,7 @@ def daemon_start(
 @daemon_app.command("stop")
 def daemon_stop(
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
-    port: Annotated[int, typer.Option("--port")] = 8765,
+    port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
 ) -> None:
     """録音セッションを停止します。"""
     import httpx
@@ -148,7 +148,7 @@ def daemon_stop(
 @daemon_app.command("status")
 def daemon_status(
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
-    port: Annotated[int, typer.Option("--port")] = 8765,
+    port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
 ) -> None:
     """現在のセッション状態を表示します。"""
     import httpx

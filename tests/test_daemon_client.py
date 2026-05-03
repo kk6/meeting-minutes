@@ -126,6 +126,33 @@ class TestDaemonClient:
         body = json.loads(transport.last_request.content)
         assert body["draft_interval_minutes"] == 5
 
+    def test_start_uses_long_read_timeout(self) -> None:
+        transport = _FixedJsonTransport(201, _RUNNING_JSON)
+        with patch.object(DaemonClient, "_client", lambda self: _patched_client(transport)):
+            DaemonClient().start(StartRequest())
+
+        assert transport.last_request is not None
+        timeout = transport.last_request.extensions["timeout"]
+        assert timeout["read"] == 300.0
+
+    def test_stop_uses_short_read_timeout(self) -> None:
+        transport = _FixedJsonTransport(200, _STOPPING_JSON)
+        with patch.object(DaemonClient, "_client", lambda self: _patched_client(transport)):
+            DaemonClient().stop()
+
+        assert transport.last_request is not None
+        timeout = transport.last_request.extensions["timeout"]
+        assert timeout["read"] == 10.0
+
+    def test_current_uses_short_read_timeout(self) -> None:
+        transport = _FixedJsonTransport(200, _CURRENT_JSON)
+        with patch.object(DaemonClient, "_client", lambda self: _patched_client(transport)):
+            DaemonClient().current()
+
+        assert transport.last_request is not None
+        timeout = transport.last_request.extensions["timeout"]
+        assert timeout["read"] == 10.0
+
 
 # ---------------------------------------------------------------------------
 # CLI コマンドのテスト（_make_daemon_client をモックして CLI 層を検証する）

@@ -188,7 +188,7 @@ uv run meeting-minutes daemon serve --config ./config.example.toml
 
 #### API ドキュメント
 
-daemon 起動中は以下の URL で対話型ドキュメントを参照できます。
+daemon 起動中は以下の URL で対話型ドキュメントを参照できます（`--port` を変更した場合は `8765` を置き換えてください）。
 
 | URL | 説明 |
 | --- | --- |
