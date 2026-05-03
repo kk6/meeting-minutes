@@ -5,9 +5,10 @@ import httpx
 from meeting_minutes.daemon.schema import SessionStatus, StartRequest
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8765"
-# 接続確立のみを 3 秒で打ち切る。応答待ちはタイムアウトしない（モデルロード等で
-# /sessions/start が数秒かかることがある）。
-_TIMEOUT = httpx.Timeout(connect=3.0, read=None, write=None, pool=None)
+# /sessions/start はモデルロード等で応答が遅れるため read タイムアウトなし。
+# stop / current は即応が期待できるため 10 秒で打ち切る。
+_START_TIMEOUT = httpx.Timeout(connect=3.0, read=None, write=None, pool=None)
+_TIMEOUT = httpx.Timeout(connect=3.0, read=10.0, write=5.0, pool=None)
 
 
 class DaemonClient:
@@ -17,25 +18,29 @@ class DaemonClient:
         self._base_url = base_url.rstrip("/")
 
     def _client(self) -> httpx.Client:
-        return httpx.Client(base_url=self._base_url, timeout=_TIMEOUT)
+        return httpx.Client(base_url=self._base_url)
 
     def start(self, req: StartRequest) -> SessionStatus:
         """録音セッションを開始する。"""
         with self._client() as c:
-            resp = c.post("/sessions/start", json=req.model_dump(mode="json"))
+            resp = c.post(
+                "/sessions/start",
+                json=req.model_dump(mode="json"),
+                timeout=_START_TIMEOUT,
+            )
             resp.raise_for_status()
             return SessionStatus.model_validate(resp.json())
 
     def stop(self) -> SessionStatus:
         """実行中のセッションを停止する。"""
         with self._client() as c:
-            resp = c.post("/sessions/stop")
+            resp = c.post("/sessions/stop", timeout=_TIMEOUT)
             resp.raise_for_status()
             return SessionStatus.model_validate(resp.json())
 
     def current(self) -> SessionStatus:
         """現在のセッション状態を返す。"""
         with self._client() as c:
-            resp = c.get("/sessions/current")
+            resp = c.get("/sessions/current", timeout=_TIMEOUT)
             resp.raise_for_status()
             return SessionStatus.model_validate(resp.json())

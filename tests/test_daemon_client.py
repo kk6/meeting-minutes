@@ -29,6 +29,14 @@ def _stopping_status() -> SessionStatus:
     return SessionStatus(id="20240101_120000", state="stopping")
 
 
+def _failed_status() -> SessionStatus:
+    return SessionStatus(
+        id="20240101_120000",
+        state="failed",
+        errors=["audio device not found"],
+    )
+
+
 @pytest.fixture
 def runner() -> CliRunner:
     return CliRunner()
@@ -235,6 +243,16 @@ class TestStatusCommand:
         assert result.exit_code == 0
         assert "running" in result.output
         assert "30s" in result.output
+
+    def test_prints_error_lines_when_session_failed(self, runner: CliRunner) -> None:
+        mock_client = MagicMock()
+        mock_client.current.return_value = _failed_status()
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
+            result = runner.invoke(app, ["daemon", "status"])
+
+        assert result.exit_code == 0
+        assert "failed" in result.output
+        assert "audio device not found" in result.output
 
     def test_exits_with_error_when_daemon_not_running(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
