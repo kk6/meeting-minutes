@@ -46,9 +46,10 @@ def _print_session_status(status: "SessionStatusType") -> None:
 
 
 def _daemon_connect_error(host: str, port: int) -> None:
+    opts = "" if (host, port) == ("127.0.0.1", 8765) else f" --host {host} --port {port}"
     _console.print(
         f"[red]http://{host}:{port} に接続できません。"
-        " 先に meeting-minutes daemon serve を起動してください。[/red]"
+        f" 先に meeting-minutes daemon serve{opts} を起動してください。[/red]"
     )
 
 

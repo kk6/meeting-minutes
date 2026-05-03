@@ -5,9 +5,9 @@ import httpx
 from meeting_minutes.daemon.schema import SessionStatus, StartRequest
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8765"
-# /sessions/start はモデルロード等で応答が遅れるため read タイムアウトなし。
+# /sessions/start はモデルロード等で応答が遅れるため read を 300 秒に設定。
 # stop / current は即応が期待できるため 10 秒で打ち切る。
-_START_TIMEOUT = httpx.Timeout(connect=3.0, read=None, write=None, pool=None)
+_START_TIMEOUT = httpx.Timeout(connect=3.0, read=300.0, write=None, pool=None)
 _TIMEOUT = httpx.Timeout(connect=3.0, read=10.0, write=5.0, pool=None)
 
 
