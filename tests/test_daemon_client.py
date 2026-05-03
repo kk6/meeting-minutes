@@ -153,6 +153,13 @@ class TestDaemonClient:
         timeout = transport.last_request.extensions["timeout"]
         assert timeout["read"] == 10.0
 
+    def test_client_disables_trust_env_to_bypass_system_proxy(self) -> None:
+        with patch("httpx.Client") as mock_httpx_client:
+            DaemonClient()._client()
+
+        mock_httpx_client.assert_called_once()
+        assert mock_httpx_client.call_args.kwargs["trust_env"] is False
+
 
 # ---------------------------------------------------------------------------
 # CLI コマンドのテスト（_make_daemon_client をモックして CLI 層を検証する）
@@ -185,7 +192,8 @@ class TestStartCommand:
             result = runner.invoke(app, ["daemon", "start"])
 
         assert result.exit_code == 1
-        assert "127.0.0.1:8765" in result.output
+        assert "応答しませんでした" in result.output
+        assert "daemon serve" not in result.output
 
     def test_exits_with_error_on_409(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
@@ -208,7 +216,28 @@ class TestStartCommand:
             result = runner.invoke(app, ["daemon", "start"])
 
         assert result.exit_code == 1
-        assert "127.0.0.1:8765" in result.output
+        assert "応答しませんでした" in result.output
+        assert "daemon serve" not in result.output
+
+    def test_localhost_treated_as_local_endpoint(self, runner: CliRunner) -> None:
+        mock_client = MagicMock()
+        mock_client.start.side_effect = httpx.ConnectError("connection refused")
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
+            result = runner.invoke(app, ["daemon", "start", "--host", "localhost"])
+
+        assert result.exit_code == 1
+        assert "daemon serve" in result.output
+        assert "ポートフォワーディング" not in result.output
+
+    def test_non_loopback_host_suggests_port_forwarding(self, runner: CliRunner) -> None:
+        mock_client = MagicMock()
+        mock_client.start.side_effect = httpx.ConnectError("connection refused")
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
+            result = runner.invoke(app, ["daemon", "start", "--host", "192.168.1.5"])
+
+        assert result.exit_code == 1
+        assert "ポートフォワーディング" in result.output
+        assert "daemon serve を起動" not in result.output
 
     def test_rejects_negative_draft_interval(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["daemon", "start", "--draft-interval-minutes", "-1"])
@@ -266,7 +295,8 @@ class TestStopCommand:
             result = runner.invoke(app, ["daemon", "stop"])
 
         assert result.exit_code == 1
-        assert "127.0.0.1:8765" in result.output
+        assert "応答しませんでした" in result.output
+        assert "daemon serve" not in result.output
 
 
 class TestStatusCommand:
@@ -296,7 +326,8 @@ class TestStatusCommand:
             result = runner.invoke(app, ["daemon", "status"])
 
         assert result.exit_code == 1
-        assert "127.0.0.1:8765" in result.output
+        assert "応答しませんでした" in result.output
+        assert "daemon serve" not in result.output
 
     def test_prints_error_lines_when_session_failed(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
