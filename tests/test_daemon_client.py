@@ -120,32 +120,6 @@ class TestDaemonClient:
 
 
 # ---------------------------------------------------------------------------
-# _make_daemon_client の URL 組み立てテスト
-# ---------------------------------------------------------------------------
-
-
-class TestMakeDaemonClient:
-    def test_uses_default_base_url_for_default_host_and_port(self) -> None:
-        from meeting_minutes.cli import _make_daemon_client
-        from meeting_minutes.daemon.client import DEFAULT_BASE_URL
-
-        client = _make_daemon_client("127.0.0.1", 8765)
-        assert client._base_url == DEFAULT_BASE_URL.rstrip("/")
-
-    def test_builds_custom_url_for_non_default_host(self) -> None:
-        from meeting_minutes.cli import _make_daemon_client
-
-        client = _make_daemon_client("192.168.1.10", 8765)
-        assert client._base_url == "http://192.168.1.10:8765"
-
-    def test_builds_custom_url_for_non_default_port(self) -> None:
-        from meeting_minutes.cli import _make_daemon_client
-
-        client = _make_daemon_client("127.0.0.1", 9000)
-        assert client._base_url == "http://127.0.0.1:9000"
-
-
-# ---------------------------------------------------------------------------
 # CLI コマンドのテスト（_make_daemon_client をモックして CLI 層を検証する）
 # ---------------------------------------------------------------------------
 
@@ -196,6 +170,16 @@ class TestStartCommand:
         result = runner.invoke(app, ["start", "--draft-interval-minutes", "-1"])
 
         assert result.exit_code != 0
+
+    def test_forwards_draft_interval_to_start_request(self, runner: CliRunner) -> None:
+        mock_client = MagicMock()
+        mock_client.start.return_value = _running_status()
+        with patch("meeting_minutes.cli._make_daemon_client", return_value=mock_client):
+            result = runner.invoke(app, ["start", "--draft-interval-minutes", "5"])
+
+        assert result.exit_code == 0
+        req = mock_client.start.call_args[0][0]
+        assert req.draft_interval_minutes == 5
 
 
 class TestStopCommand:

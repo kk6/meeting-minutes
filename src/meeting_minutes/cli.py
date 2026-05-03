@@ -246,7 +246,7 @@ def _print_session_status(status: "SessionStatusType") -> None:
 def _daemon_connect_error(host: str, port: int) -> None:
     console.print(
         f"[red]http://{host}:{port} に接続できません。"
-        "daemon が起動しているか確認してください。[/red]"
+        " 先に meeting-minutes daemon を起動してください。[/red]"
     )
 
 

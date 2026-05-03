@@ -5,7 +5,9 @@ import httpx
 from meeting_minutes.daemon.schema import SessionStatus, StartRequest
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8765"
-_CONNECT_TIMEOUT = 3.0
+# 接続確立のみを 3 秒で打ち切る。応答待ちはタイムアウトしない（モデルロード等で
+# /sessions/start が数秒かかることがある）。
+_TIMEOUT = httpx.Timeout(connect=3.0, read=None, write=None, pool=None)
 
 
 class DaemonClient:
@@ -15,12 +17,12 @@ class DaemonClient:
         self._base_url = base_url.rstrip("/")
 
     def _client(self) -> httpx.Client:
-        return httpx.Client(base_url=self._base_url, timeout=_CONNECT_TIMEOUT)
+        return httpx.Client(base_url=self._base_url, timeout=_TIMEOUT)
 
     def start(self, req: StartRequest) -> SessionStatus:
         """録音セッションを開始する。"""
         with self._client() as c:
-            resp = c.post("/sessions/start", json=req.model_dump())
+            resp = c.post("/sessions/start", json=req.model_dump(mode="json"))
             resp.raise_for_status()
             return SessionStatus.model_validate(resp.json())
 
