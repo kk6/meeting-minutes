@@ -94,6 +94,12 @@ class LiveSession:
         self._stop_event.set()
         if self._thread is not None and self._thread.is_alive():
             self._thread.join(timeout=timeout)
+            if self._thread.is_alive():
+                logger.warning(
+                    "live-session thread did not stop within %.0fs; "
+                    "process will exit with it still running",
+                    timeout,
+                )
 
     def snapshot(self) -> SessionStatus:
         """現在のセッション状態を返す。"""

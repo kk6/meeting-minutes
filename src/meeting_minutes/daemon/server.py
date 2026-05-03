@@ -4,6 +4,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from meeting_minutes.config import AppConfig
@@ -41,6 +42,16 @@ app = FastAPI(
     openapi_url=None,
 )
 
+# localhost 上の Web UI からの呼び出しを許可しつつ、外部オリジンからの CSRF を防ぐ。
+# JSON POST はシンプルリクエストではないためプリフライトが必須となり、
+# 許可されていないオリジンからの実際のリクエストはブラウザにブロックされる。
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
+
 
 @app.post("/sessions/start", response_model=SessionStatus, status_code=201)
 def start_session(req: StartRequest | None = None) -> SessionStatus:
@@ -48,7 +59,7 @@ def start_session(req: StartRequest | None = None) -> SessionStatus:
     if req is None:
         req = StartRequest()
     try:
-        return _session.start(
+        status = _session.start(
             _get_config(),
             overrides=req.overrides,
             draft_interval_minutes=req.draft_interval_minutes,
@@ -57,6 +68,10 @@ def start_session(req: StartRequest | None = None) -> SessionStatus:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (ValueError, ValidationError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if status.state == "failed":
+        detail = status.errors[0] if status.errors else "session startup failed"
+        raise HTTPException(status_code=500, detail=detail)
+    return status
 
 
 @app.post("/sessions/stop", response_model=SessionStatus)

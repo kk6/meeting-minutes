@@ -268,9 +268,6 @@ def run_live(
     if transcript_path is not None:
         init_transcript(transcript_path, config, input_device, started_at)
 
-    if on_session_ready is not None:
-        on_session_ready(str(session_dir), str(transcript_path) if transcript_path else None)
-
     console.print(f"[green]Recording:[/green] {input_device.name} [{input_device.index}]")
     console.print(f"[green]Output:[/green] {session_dir}")
     console.print("Press Ctrl+C to stop.")
@@ -320,6 +317,9 @@ def run_live(
     elapsed_seconds = 0
     if config.vad.enabled:
         console.print("[green]VAD:[/green] enabled")
+
+    if on_session_ready is not None:
+        on_session_ready(str(session_dir), str(transcript_path) if transcript_path else None)
 
     try:
         audio_recording = AudioRecording.open(
