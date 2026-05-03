@@ -22,8 +22,7 @@ class TestLiveSessionStateTransitions:
 
         with patch("meeting_minutes.daemon.session.run_live"):
             session.start(config)
-            assert session._thread is not None
-            session._thread.join(timeout=5)
+            session.shutdown(timeout=5)
 
         assert session.snapshot().state == "idle"
 
@@ -35,8 +34,7 @@ class TestLiveSessionStateTransitions:
             side_effect=RuntimeError("boom"),
         ):
             session.start(config)
-            assert session._thread is not None
-            session._thread.join(timeout=5)
+            session.shutdown(timeout=5)
 
         status = session.snapshot()
         assert status.state == "failed"
@@ -62,10 +60,21 @@ class TestLiveSessionStateTransitions:
             status = session.stop()
             assert status.state == "stopping"
 
-            assert session._thread is not None
-            session._thread.join(timeout=5)
+            session.shutdown(timeout=5)
 
         assert session.snapshot().state == "idle"
+
+    def test_elapsed_seconds_frozen_after_session_ends(self, config: AppConfig) -> None:
+        """セッション終了後、elapsed_seconds が増加し続けないこと。"""
+        session = LiveSession()
+
+        with patch("meeting_minutes.daemon.session.run_live"):
+            session.start(config)
+            session.shutdown(timeout=5)
+
+        first = session.snapshot().elapsed_seconds
+        second = session.snapshot().elapsed_seconds
+        assert first == second
 
 
 class TestLiveSessionCallback:
@@ -85,8 +94,7 @@ class TestLiveSessionCallback:
 
         with patch("meeting_minutes.daemon.session.run_live", side_effect=fake_run_live):
             session.start(config)
-            assert session._thread is not None
-            session._thread.join(timeout=5)
+            session.shutdown(timeout=5)
 
         status = session.snapshot()
         assert status.session_dir == expected_dir
@@ -97,8 +105,7 @@ class TestLiveSessionCallback:
 
         with patch("meeting_minutes.daemon.session.run_live"):
             session.start(config)
-            assert session._thread is not None
-            session._thread.join(timeout=5)
+            session.shutdown(timeout=5)
 
         status = session.snapshot()
         assert status.session_dir is None

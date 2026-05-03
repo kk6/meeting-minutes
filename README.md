@@ -35,11 +35,6 @@ HTTP API 経由で制御する場合（daemon モード）:
 ```bash
 # ターミナル A: サーバを起動（Ctrl+C で停止）
 uv run meeting-minutes daemon
-
-# ターミナル B: セッション操作
-uv run meeting-minutes start
-uv run meeting-minutes status
-uv run meeting-minutes stop
 ```
 
 設定例は [config.example.toml](./config.example.toml) を参照してください。

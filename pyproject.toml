@@ -50,11 +50,22 @@ python_version = "3.12"
 strict = true
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
-disable_error_code = ["type-arg"]
 
 [[tool.mypy.overrides]]
 module = ["sounddevice", "faster_whisper", "fastapi", "fastapi.*", "uvicorn", "uvicorn.*", "httpx", "pydantic_settings"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "meeting_minutes.audio.preprocess",
+    "meeting_minutes.audio.stream",
+    "meeting_minutes.audio.vad",
+    "meeting_minutes.audio.writer",
+    "meeting_minutes.transcription.live",
+    "meeting_minutes.transcription.live_transcription",
+    "meeting_minutes.transcription.transcribe",
+]
+disable_error_code = ["type-arg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

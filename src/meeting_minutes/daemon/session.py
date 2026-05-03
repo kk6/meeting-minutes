@@ -23,6 +23,7 @@ class LiveSession:
     _state: SessionState = field(default="idle", init=False)
     _session_id: str = field(default="", init=False)
     _started_at: datetime | None = field(default=None, init=False)
+    _elapsed_seconds: int = field(default=0, init=False)
     _session_dir: str | None = field(default=None, init=False)
     _transcript_path: str | None = field(default=None, init=False)
     _errors: list[str] = field(default_factory=list, init=False)
@@ -42,8 +43,9 @@ class LiveSession:
             if self._state in ("running", "stopping"):
                 raise RuntimeError("session already running")
             config = apply_overrides(base_config, overrides or {})
-            self._session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self._session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             self._started_at = datetime.now()
+            self._elapsed_seconds = 0
             self._session_dir = None
             self._transcript_path = None
             self._errors = []
@@ -80,9 +82,10 @@ class LiveSession:
 
     def _snapshot(self) -> SessionStatus:
         with self._lock:
-            elapsed = 0
-            if self._started_at is not None:
+            if self._state in ("running", "stopping") and self._started_at is not None:
                 elapsed = int((datetime.now() - self._started_at).total_seconds())
+            else:
+                elapsed = self._elapsed_seconds
             return SessionStatus(
                 id=self._session_id,
                 state=self._state,
@@ -98,6 +101,12 @@ class LiveSession:
             self._session_dir = session_dir
             self._transcript_path = transcript_path
 
+    def _freeze_elapsed(self) -> None:
+        """セッション終了時に経過秒数を確定し、started_at をクリアする。"""
+        if self._started_at is not None:
+            self._elapsed_seconds = int((datetime.now() - self._started_at).total_seconds())
+            self._started_at = None
+
     def _run(self, config: AppConfig, draft_interval_minutes: int) -> None:
         try:
             run_live(
@@ -110,8 +119,10 @@ class LiveSession:
             logger.exception("Live session thread raised an exception")
             with self._lock:
                 self._errors.append(traceback.format_exc())
+                self._freeze_elapsed()
                 self._state = "failed"
             return
         with self._lock:
             if self._state != "failed":
+                self._freeze_elapsed()
                 self._state = "idle"
