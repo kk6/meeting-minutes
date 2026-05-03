@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from meeting_minutes.daemon.schema import SessionStatus
 from meeting_minutes.daemon.server import app
+from meeting_minutes.daemon.session import SessionConflictError
 
 
 def _idle_status(session_id: str = "20240101_120000") -> SessionStatus:
@@ -54,7 +55,7 @@ class TestStartSession:
     def test_returns_409_when_already_running(
         self, client: TestClient, fake_session: MagicMock
     ) -> None:
-        fake_session.start.side_effect = RuntimeError("session already running")
+        fake_session.start.side_effect = SessionConflictError("session already running")
 
         response = client.post("/sessions/start", json={})
 
@@ -107,7 +108,7 @@ class TestStopSession:
     def test_returns_409_when_no_session_running(
         self, client: TestClient, fake_session: MagicMock
     ) -> None:
-        fake_session.stop.side_effect = RuntimeError("no session is running")
+        fake_session.stop.side_effect = SessionConflictError("no session is running")
 
         response = client.post("/sessions/stop")
 

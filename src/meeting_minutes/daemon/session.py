@@ -16,6 +16,10 @@ logger = logging.getLogger(__name__)
 SessionState = Literal["idle", "running", "stopping", "failed"]
 
 
+class SessionConflictError(RuntimeError):
+    """セッションの状態が操作と競合するときに送出する。"""
+
+
 @dataclass
 class LiveSession:
     """録音セッションを所有し、HTTP API 経由で start / stop / status を管理する。"""
@@ -41,7 +45,7 @@ class LiveSession:
         """録音セッションを開始する。既に実行中なら RuntimeError を送出する。"""
         with self._lock:
             if self._state in ("running", "stopping"):
-                raise RuntimeError("session already running")
+                raise SessionConflictError("session already running")
             config = apply_overrides(base_config, overrides or {})
             self._session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             self._started_at = datetime.now()
@@ -65,7 +69,7 @@ class LiveSession:
         """実行中のセッションに停止を要求する。セッションがなければ RuntimeError を送出する。"""
         with self._lock:
             if self._state != "running":
-                raise RuntimeError("no session is running")
+                raise SessionConflictError("no session is running")
             self._state = "stopping"
             self._stop_event.set()
         return self._snapshot()

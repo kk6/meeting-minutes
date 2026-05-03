@@ -170,8 +170,6 @@ uv run meeting-minutes daemon --config ./config.example.toml
 
 `127.0.0.1` のみに bind するため、外部ネットワークからはアクセスできません。停止するには `Ctrl+C` を押します。
 
-`start` / `stop` / `status` コマンドについては、daemon クライアント CLI のドキュメントを参照してください。
-
 ## clean
 
 文字起こしのフィラー・言い直し・重複・句読点不足を LLM で機械的に整形し、読みやすいテキストとして保存します。

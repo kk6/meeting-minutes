@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from meeting_minutes.config import AppConfig
 from meeting_minutes.daemon.schema import SessionStatus, StartRequest
-from meeting_minutes.daemon.session import LiveSession
+from meeting_minutes.daemon.session import LiveSession, SessionConflictError
 
 _session = LiveSession()
 _config: AppConfig | None = None
@@ -46,7 +46,7 @@ def start_session(req: StartRequest | None = None) -> SessionStatus:
             overrides=req.overrides,
             draft_interval_minutes=req.draft_interval_minutes,
         )
-    except RuntimeError as exc:
+    except SessionConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (ValueError, ValidationError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -57,7 +57,7 @@ def stop_session() -> SessionStatus:
     """実行中のセッションを停止する。セッションがなければ 409 を返す。"""
     try:
         return _session.stop()
-    except RuntimeError as exc:
+    except SessionConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
