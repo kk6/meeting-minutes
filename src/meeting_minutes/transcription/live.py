@@ -265,11 +265,11 @@ def run_live(
     audio_recording = AudioRecording(path=audio_path)
     errors: list[str] = []
 
-    if on_session_ready is not None:
-        on_session_ready(str(session_dir), str(transcript_path) if transcript_path else None)
-
     if transcript_path is not None:
         init_transcript(transcript_path, config, input_device, started_at)
+
+    if on_session_ready is not None:
+        on_session_ready(str(session_dir), str(transcript_path) if transcript_path else None)
 
     console.print(f"[green]Recording:[/green] {input_device.name} [{input_device.index}]")
     console.print(f"[green]Output:[/green] {session_dir}")
@@ -337,10 +337,10 @@ def run_live(
             on_overflow=overflow_recorder.record,
         ):
             elapsed_seconds += config.audio.chunk_seconds
-            audio_recording.write(chunk, errors)
-            transcription_runner.process(audio_preprocessor.process(chunk))
             if stop_event is not None and stop_event.is_set():
                 break
+            audio_recording.write(chunk, errors)
+            transcription_runner.process(audio_preprocessor.process(chunk))
             draft_scheduler.maybe_generate(elapsed_seconds)
         if transcription_runner.flush():
             draft_scheduler.maybe_generate(elapsed_seconds)

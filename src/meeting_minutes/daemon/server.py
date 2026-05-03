@@ -32,7 +32,14 @@ async def _lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     _session.shutdown()
 
 
-app = FastAPI(title="meeting-minutes daemon", version="1.0", lifespan=_lifespan)
+app = FastAPI(
+    title="meeting-minutes daemon",
+    version="1.0",
+    lifespan=_lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 
 @app.post("/sessions/start", response_model=SessionStatus, status_code=201)

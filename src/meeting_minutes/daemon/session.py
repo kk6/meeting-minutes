@@ -62,7 +62,14 @@ class LiveSession:
             daemon=True,
             name=f"live-session-{self._session_id}",
         )
-        self._thread.start()
+        try:
+            self._thread.start()
+        except OSError:
+            with self._lock:
+                self._freeze_elapsed()
+                self._state = "failed"
+                self._errors.append(traceback.format_exc())
+            raise
         return self._snapshot()
 
     def stop(self) -> SessionStatus:
