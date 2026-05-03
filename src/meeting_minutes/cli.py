@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
 if TYPE_CHECKING:
+    import httpx
+
     from meeting_minutes.daemon.client import DaemonClient as DaemonClientType
     from meeting_minutes.daemon.schema import SessionStatus as SessionStatusType
 
@@ -231,7 +233,7 @@ def _print_session_status(status: "SessionStatusType") -> None:
     console.print(f"[bold]State:[/bold] [{state_color}]{status.state}[/{state_color}]")
     if status.started_at:
         console.print(f"[bold]Started:[/bold] {status.started_at}")
-    if status.elapsed_seconds:
+    if status.elapsed_seconds > 0:
         console.print(f"[bold]Elapsed:[/bold] {status.elapsed_seconds}s")
     if status.session_dir:
         console.print(f"[bold]Session dir:[/bold] {status.session_dir}")
@@ -244,7 +246,14 @@ def _print_session_status(status: "SessionStatusType") -> None:
 def _daemon_connect_error() -> None:
     console.print(
         "[red]daemon に接続できません。先に meeting-minutes daemon を起動してください。[/red]"
-    )  # noqa: E501
+    )
+
+
+def _http_error_detail(exc: "httpx.HTTPStatusError") -> str:
+    try:
+        return str(exc.response.json().get("detail", exc))
+    except Exception:
+        return str(exc)
 
 
 @app.command()
@@ -252,7 +261,7 @@ def start(
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port")] = 8765,
     draft_interval_minutes: Annotated[
-        int, typer.Option("--draft-interval-minutes", help="0なら自動ドラフト生成なし")
+        int, typer.Option("--draft-interval-minutes", help="0なら自動ドラフト生成なし", min=0)
     ] = 0,
 ) -> None:
     """daemon の録音セッションを開始します。"""
@@ -267,7 +276,7 @@ def start(
         _daemon_connect_error()
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
-        console.print(f"[red]{exc.response.json().get('detail', str(exc))}[/red]")
+        console.print(f"[red]{_http_error_detail(exc)}[/red]")
         raise typer.Exit(code=1) from exc
     _print_session_status(session_status)
 
@@ -287,7 +296,7 @@ def stop(
         _daemon_connect_error()
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
-        console.print(f"[red]{exc.response.json().get('detail', str(exc))}[/red]")
+        console.print(f"[red]{_http_error_detail(exc)}[/red]")
         raise typer.Exit(code=1) from exc
     _print_session_status(session_status)
 
@@ -306,6 +315,9 @@ def status(
     except httpx.ConnectError:
         _daemon_connect_error()
         raise typer.Exit(code=1) from None
+    except httpx.HTTPStatusError as exc:
+        console.print(f"[red]{_http_error_detail(exc)}[/red]")
+        raise typer.Exit(code=1) from exc
     _print_session_status(session_status)
 
 

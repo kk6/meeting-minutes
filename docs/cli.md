@@ -194,6 +194,46 @@ curl -s -X POST http://127.0.0.1:8765/sessions/stop | jq
 curl -s http://127.0.0.1:8765/sessions/current | jq
 ```
 
+## start
+
+daemon の録音セッションを開始します。事前に `daemon` コマンドでサーバを起動しておく必要があります。
+
+```bash
+uv run meeting-minutes start
+```
+
+| オプション | 既定値 | 説明 |
+| --- | --- | --- |
+| `--host` | `127.0.0.1` | daemon のホスト |
+| `--port` | `8765` | daemon のポート |
+| `--draft-interval-minutes` | `0` | 指定分ごとにドラフト生成。`0` なら無効 |
+
+## stop
+
+実行中の録音セッションを停止します。
+
+```bash
+uv run meeting-minutes stop
+```
+
+| オプション | 既定値 | 説明 |
+| --- | --- | --- |
+| `--host` | `127.0.0.1` | daemon のホスト |
+| `--port` | `8765` | daemon のポート |
+
+## status
+
+現在のセッション状態を表示します。
+
+```bash
+uv run meeting-minutes status
+```
+
+| オプション | 既定値 | 説明 |
+| --- | --- | --- |
+| `--host` | `127.0.0.1` | daemon のホスト |
+| `--port` | `8765` | daemon のポート |
+
 ## clean
 
 文字起こしのフィラー・言い直し・重複・句読点不足を LLM で機械的に整形し、読みやすいテキストとして保存します。
