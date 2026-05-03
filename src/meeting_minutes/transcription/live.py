@@ -1,6 +1,7 @@
 """ライブ録音セッションのオーケストレーション（録音・書き起こし・ドラフト生成）。"""
 
 import logging
+import threading
 import wave
 from dataclasses import dataclass
 from datetime import datetime
@@ -242,10 +243,16 @@ class DraftScheduler:
             return None
 
 
-def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
+def run_live(
+    config: AppConfig,
+    *,
+    draft_interval_minutes: int = 0,
+    stop_event: threading.Event | None = None,
+) -> None:
     """ライブ録音セッションを起動する。
 
     `draft_interval_minutes > 0` でその間隔ごとに議事録ドラフトを生成する。
+    `stop_event` が指定された場合、セットされると次のチャンク処理後に録音を停止する。
     """
     started_at = datetime.now()
     input_device = resolve_input_device(config.audio.device, config.audio.device_index)
@@ -327,6 +334,8 @@ def run_live(config: AppConfig, *, draft_interval_minutes: int = 0) -> None:
             audio_recording.write(chunk, errors)
             transcription_runner.process(audio_preprocessor.process(chunk))
             draft_scheduler.maybe_generate(elapsed_seconds)
+            if stop_event is not None and stop_event.is_set():
+                break
         if transcription_runner.flush():
             draft_scheduler.maybe_generate(elapsed_seconds)
     except KeyboardInterrupt:

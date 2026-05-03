@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "faster-whisper>=1.1.0",
+  "fastapi>=0.111.0",
   "httpx>=0.27.0",
   "numpy>=1.26.0",
   "pydantic>=2.7.0",
@@ -13,6 +14,7 @@ dependencies = [
   "rich>=13.7.0",
   "sounddevice>=0.4.6",
   "typer>=0.12.0",
+  "uvicorn[standard]>=0.29.0",
 ]
 
 [project.scripts]
@@ -48,10 +50,16 @@ python_version = "3.12"
 strict = true
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
+disable_error_code = ["type-arg"]
 
 [[tool.mypy.overrides]]
-module = ["sounddevice", "faster_whisper"]
+module = ["sounddevice", "faster_whisper", "fastapi", "fastapi.*", "uvicorn", "uvicorn.*", "httpx", "pydantic_settings"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest-anyio>=0.0.0",
+]

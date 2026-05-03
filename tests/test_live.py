@@ -268,6 +268,34 @@ def test_run_live_continues_and_records_audio_overflow_when_configured(
     ]
 
 
+def test_run_live_stops_when_stop_event_is_set(
+    tmp_path: Path,
+    input_device: InputDevice,
+    fake_transcriber: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import threading
+
+    stop_event = threading.Event()
+    chunks_seen = 0
+
+    def fake_audio_chunks(**_kwargs: object) -> Iterator[np.ndarray]:
+        nonlocal chunks_seen
+        while True:
+            chunks_seen += 1
+            yield np.full(16000, 0.1, dtype=np.float32)
+
+    monkeypatch.setattr(
+        "meeting_minutes.transcription.live.resolve_input_device", lambda *_args: input_device
+    )
+    monkeypatch.setattr("meeting_minutes.transcription.live.audio_chunks", fake_audio_chunks)
+    stop_event.set()
+
+    run_live(live_config(tmp_path), stop_event=stop_event)
+
+    assert chunks_seen == 1
+
+
 def test_run_live_aborts_on_audio_overflow_by_default(
     tmp_path: Path,
     input_device: InputDevice,
