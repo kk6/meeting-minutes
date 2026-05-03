@@ -279,6 +279,18 @@ class TestStartCommand:
         assert result.exit_code != 0
         assert "スキーマ" in result.output
 
+    def test_rejects_empty_host(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["daemon", "start", "--host", ""])
+
+        assert result.exit_code != 0
+        assert "空" in result.output
+
+    def test_rejects_whitespace_only_host(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["daemon", "start", "--host", "   "])
+
+        assert result.exit_code != 0
+        assert "空" in result.output
+
     def test_rejects_negative_draft_interval(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["daemon", "start", "--draft-interval-minutes", "-1"])
 

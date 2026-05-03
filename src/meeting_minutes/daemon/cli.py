@@ -20,17 +20,22 @@ _console = Console()
 
 
 def _validate_host(value: str) -> str:
-    """--host に渡されたホスト指定を検証する。
+    """--host に渡されたホスト指定を検証・正規化する。
 
     daemon serve は IPv4 ループバックにのみ bind するため、IPv6 リテラルや
     すでに :port を含むような値は誤解を招くので拒否する。
+    `localhost` は OS によって ::1 へ先に解決される場合があり接続が
+    失敗しうるため、内部的に 127.0.0.1 へ正規化して扱う。
     """
+    value = value.strip()
+    if not value:
+        raise typer.BadParameter("--host が空です")
     if any(c in value for c in "/:[]"):
         raise typer.BadParameter(
             "--host にはホスト名または IPv4 アドレスのみを指定してください "
             "（http:// などのスキーマ、:port、IPv6 リテラルは未対応）"
         )
-    return value
+    return "127.0.0.1" if value == "localhost" else value
 
 
 def _make_daemon_client(host: str, port: int) -> "DaemonClientType":
@@ -59,7 +64,7 @@ def _print_session_status(status: "SessionStatusType") -> None:
         _console.print(f"[red]Error:[/red] {err}")
 
 
-_LOCAL_HOSTS = {"127.0.0.1", "localhost"}
+_LOCAL_HOSTS = {"127.0.0.1"}
 
 
 def _daemon_connect_error(host: str, port: int) -> None:
