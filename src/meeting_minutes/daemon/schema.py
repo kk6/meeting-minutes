@@ -3,14 +3,14 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class StartRequest(BaseModel):
-    """POST /sessions/start のリクエストボディ。"""
+    """POST /sessions/start のリクエストボディ。全フィールドはオプション。"""
 
     overrides: dict[str, Any] | None = None
-    draft_interval_minutes: int = 0
+    draft_interval_minutes: int = Field(default=0, ge=0)
 
 
 class SessionStatus(BaseModel):

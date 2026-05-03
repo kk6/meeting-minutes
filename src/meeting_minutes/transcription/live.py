@@ -3,6 +3,7 @@
 import logging
 import threading
 import wave
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from math import ceil, floor
@@ -248,11 +249,13 @@ def run_live(
     *,
     draft_interval_minutes: int = 0,
     stop_event: threading.Event | None = None,
+    on_session_ready: Callable[[str, str | None], None] | None = None,
 ) -> None:
     """ライブ録音セッションを起動する。
 
     `draft_interval_minutes > 0` でその間隔ごとに議事録ドラフトを生成する。
     `stop_event` が指定された場合、セットされると次のチャンク処理後に録音を停止する。
+    `on_session_ready` が指定された場合、session_dir 確定後に呼ぶ。
     """
     started_at = datetime.now()
     input_device = resolve_input_device(config.audio.device, config.audio.device_index)
@@ -261,6 +264,9 @@ def run_live(
     audio_path = session_dir / "audio_live.wav" if config.output.save_audio else None
     audio_recording = AudioRecording(path=audio_path)
     errors: list[str] = []
+
+    if on_session_ready is not None:
+        on_session_ready(str(session_dir), str(transcript_path) if transcript_path else None)
 
     if transcript_path is not None:
         init_transcript(transcript_path, config, input_device, started_at)

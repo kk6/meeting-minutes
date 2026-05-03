@@ -23,7 +23,6 @@ class LiveSession:
     _state: SessionState = field(default="idle", init=False)
     _session_id: str = field(default="", init=False)
     _started_at: datetime | None = field(default=None, init=False)
-    _elapsed_seconds: int = field(default=0, init=False)
     _session_dir: str | None = field(default=None, init=False)
     _transcript_path: str | None = field(default=None, init=False)
     _errors: list[str] = field(default_factory=list, init=False)
@@ -45,7 +44,6 @@ class LiveSession:
             config = apply_overrides(base_config, overrides or {})
             self._session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
             self._started_at = datetime.now()
-            self._elapsed_seconds = 0
             self._session_dir = None
             self._transcript_path = None
             self._errors = []
@@ -55,7 +53,7 @@ class LiveSession:
         self._thread = threading.Thread(
             target=self._run,
             args=(config, draft_interval_minutes),
-            daemon=True,
+            daemon=False,
             name=f"live-session-{self._session_id}",
         )
         self._thread.start()
@@ -70,21 +68,35 @@ class LiveSession:
             self._stop_event.set()
         return self._snapshot()
 
+    def shutdown(self, *, timeout: float = 30.0) -> None:
+        """プロセス終了時に呼び出し、実行中セッションの完了を待つ。"""
+        self._stop_event.set()
+        if self._thread is not None and self._thread.is_alive():
+            self._thread.join(timeout=timeout)
+
     def snapshot(self) -> SessionStatus:
         """現在のセッション状態を返す。"""
         return self._snapshot()
 
     def _snapshot(self) -> SessionStatus:
         with self._lock:
+            elapsed = 0
+            if self._started_at is not None:
+                elapsed = int((datetime.now() - self._started_at).total_seconds())
             return SessionStatus(
                 id=self._session_id,
                 state=self._state,
                 started_at=self._started_at,
-                elapsed_seconds=self._elapsed_seconds,
+                elapsed_seconds=elapsed,
                 session_dir=self._session_dir,
                 transcript_path=self._transcript_path,
                 errors=list(self._errors),
             )
+
+    def _on_session_dir_ready(self, session_dir: str, transcript_path: str | None) -> None:
+        with self._lock:
+            self._session_dir = session_dir
+            self._transcript_path = transcript_path
 
     def _run(self, config: AppConfig, draft_interval_minutes: int) -> None:
         try:
@@ -92,6 +104,7 @@ class LiveSession:
                 config,
                 draft_interval_minutes=draft_interval_minutes,
                 stop_event=self._stop_event,
+                on_session_ready=self._on_session_dir_ready,
             )
         except Exception:
             logger.exception("Live session thread raised an exception")

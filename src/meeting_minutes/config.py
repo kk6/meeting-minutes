@@ -133,7 +133,7 @@ class CleaningConfig(BaseModel):
     output_filename: str = "transcript_clean.md"
 
 
-class AppConfig(BaseSettings):  # type: ignore[misc]
+class AppConfig(BaseSettings):
     """全セクションを束ねるアプリ設定。
 
     `MEETING_MINUTES_<SECTION>__<KEY>` 形式の環境変数で各セクションの値を上書き可能。
@@ -167,7 +167,7 @@ def load_config(path: Path | None) -> AppConfig:
 
     with path.open("rb") as file:
         data = tomllib.load(file)
-    return AppConfig.model_validate(data)  # type: ignore[no-any-return]
+    return AppConfig.model_validate(data)
 
 
 def appconfig_section_names() -> set[str]:
@@ -219,4 +219,4 @@ def apply_overrides(config: AppConfig, overrides: dict[str, object]) -> AppConfi
         updated = updated.model_copy(update={section: current.model_copy(update=updates)})
 
     # model_copy(update=...) skips validation, so revalidate before returning.
-    return AppConfig.model_validate(updated.model_dump())  # type: ignore[no-any-return]
+    return AppConfig.model_validate(updated.model_dump())
