@@ -47,10 +47,11 @@ def _print_session_status(status: "SessionStatusType") -> None:
 
 def _daemon_connect_error(host: str, port: int) -> None:
     if host != "127.0.0.1":
-        # serve は常に 127.0.0.1 にバインドするため --host の提案はできない
+        # serve は 127.0.0.1 にのみバインドするためリモートには直接届かない
         _console.print(
             f"[red]http://{host}:{port} に接続できません。"
-            " ターゲットホストで daemon serve が起動しているか確認してください。[/red]"
+            " daemon serve はループバックにのみバインドするため、"
+            " リモートホストへの接続にはポートフォワーディングが必要です。[/red]"
         )
     else:
         port_opt = f" --port {port}" if port != 8765 else ""
@@ -58,6 +59,13 @@ def _daemon_connect_error(host: str, port: int) -> None:
             f"[red]http://{host}:{port} に接続できません。"
             f" 先に meeting-minutes daemon serve{port_opt} を起動してください。[/red]"
         )
+
+
+def _daemon_timeout_error(host: str, port: int) -> None:
+    _console.print(
+        f"[red]http://{host}:{port} が応答しませんでした。"
+        " デーモンが起動中の場合はしばらく待ってから再試行してください。[/red]"
+    )
 
 
 def _http_error_detail(exc: "httpx.HTTPStatusError") -> str:
@@ -99,8 +107,11 @@ def daemon_start(
     client = _make_daemon_client(host, port)
     try:
         session_status = client.start(StartRequest(draft_interval_minutes=draft_interval_minutes))
-    except (httpx.ConnectError, httpx.TimeoutException):
+    except httpx.ConnectError:
         _daemon_connect_error(host, port)
+        raise typer.Exit(code=1) from None
+    except httpx.TimeoutException:
+        _daemon_timeout_error(host, port)
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
         _console.print(f"[red]{_http_error_detail(exc)}[/red]")
@@ -119,8 +130,11 @@ def daemon_stop(
     client = _make_daemon_client(host, port)
     try:
         session_status = client.stop()
-    except (httpx.ConnectError, httpx.TimeoutException):
+    except httpx.ConnectError:
         _daemon_connect_error(host, port)
+        raise typer.Exit(code=1) from None
+    except httpx.TimeoutException:
+        _daemon_timeout_error(host, port)
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
         _console.print(f"[red]{_http_error_detail(exc)}[/red]")
@@ -139,8 +153,11 @@ def daemon_status(
     client = _make_daemon_client(host, port)
     try:
         session_status = client.current()
-    except (httpx.ConnectError, httpx.TimeoutException):
+    except httpx.ConnectError:
         _daemon_connect_error(host, port)
+        raise typer.Exit(code=1) from None
+    except httpx.TimeoutException:
+        _daemon_timeout_error(host, port)
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
         _console.print(f"[red]{_http_error_detail(exc)}[/red]")
