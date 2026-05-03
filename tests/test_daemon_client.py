@@ -248,16 +248,6 @@ class TestStartCommand:
         assert "ポートフォワーディング" in result.output
         assert "daemon serve を起動" not in result.output
 
-    def test_ipv6_loopback_treated_as_local_endpoint(self, runner: CliRunner) -> None:
-        mock_client = MagicMock()
-        mock_client.start.side_effect = httpx.ConnectError("connection refused")
-        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
-            result = runner.invoke(app, ["daemon", "start", "--host", "::1"])
-
-        assert result.exit_code == 1
-        assert "daemon serve" in result.output
-        assert "ポートフォワーディング" not in result.output
-
     def test_rejects_host_with_scheme(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["daemon", "start", "--host", "http://127.0.0.1"])
 
@@ -269,7 +259,24 @@ class TestStartCommand:
         result = runner.invoke(app, ["daemon", "start", "--host", "127.0.0.1/api"])
 
         assert result.exit_code != 0
-        # Rich パネルでメッセージが折り返されるため、安定する後半部分で判定する
+        assert "スキーマ" in result.output
+
+    def test_rejects_host_with_embedded_port(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["daemon", "start", "--host", "127.0.0.1:9000"])
+
+        assert result.exit_code != 0
+        assert "スキーマ" in result.output
+
+    def test_rejects_ipv6_literal(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["daemon", "start", "--host", "::1"])
+
+        assert result.exit_code != 0
+        assert "スキーマ" in result.output
+
+    def test_rejects_bracketed_host(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["daemon", "start", "--host", "[::1]"])
+
+        assert result.exit_code != 0
         assert "スキーマ" in result.output
 
     def test_rejects_negative_draft_interval(self, runner: CliRunner) -> None:

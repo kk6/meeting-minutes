@@ -20,11 +20,15 @@ _console = Console()
 
 
 def _validate_host(value: str) -> str:
-    """--host に渡されたホスト指定を検証する。スキーマや path を含む値は弾く。"""
-    if "://" in value or "/" in value:
+    """--host に渡されたホスト指定を検証する。
+
+    daemon serve は IPv4 ループバックにのみ bind するため、IPv6 リテラルや
+    すでに :port を含むような値は誤解を招くので拒否する。
+    """
+    if any(c in value for c in "/:[]"):
         raise typer.BadParameter(
-            "--host にはホスト名または IP アドレスのみを指定してください "
-            "（http:// などのスキーマや path は不要）"
+            "--host にはホスト名または IPv4 アドレスのみを指定してください "
+            "（http:// などのスキーマ、:port、IPv6 リテラルは未対応）"
         )
     return value
 
@@ -32,9 +36,7 @@ def _validate_host(value: str) -> str:
 def _make_daemon_client(host: str, port: int) -> "DaemonClientType":
     from meeting_minutes.daemon.client import DaemonClient
 
-    # IPv6 リテラル（例: ::1）は URL では角括弧で囲む必要がある
-    bracketed = f"[{host}]" if ":" in host else host
-    return DaemonClient(f"http://{bracketed}:{port}")
+    return DaemonClient(f"http://{host}:{port}")
 
 
 def _print_session_status(status: "SessionStatusType") -> None:
@@ -57,7 +59,7 @@ def _print_session_status(status: "SessionStatusType") -> None:
         _console.print(f"[red]Error:[/red] {err}")
 
 
-_LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
+_LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 
 
 def _daemon_connect_error(host: str, port: int) -> None:
