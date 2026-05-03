@@ -19,10 +19,22 @@ daemon_app = typer.Typer(no_args_is_help=True, help="ローカル制御サーバ
 _console = Console()
 
 
+def _validate_host(value: str) -> str:
+    """--host に渡されたホスト指定を検証する。スキーマや path を含む値は弾く。"""
+    if "://" in value or "/" in value:
+        raise typer.BadParameter(
+            "--host にはホスト名または IP アドレスのみを指定してください "
+            "（http:// などのスキーマや path は不要）"
+        )
+    return value
+
+
 def _make_daemon_client(host: str, port: int) -> "DaemonClientType":
     from meeting_minutes.daemon.client import DaemonClient
 
-    return DaemonClient(f"http://{host}:{port}")
+    # IPv6 リテラル（例: ::1）は URL では角括弧で囲む必要がある
+    bracketed = f"[{host}]" if ":" in host else host
+    return DaemonClient(f"http://{bracketed}:{port}")
 
 
 def _print_session_status(status: "SessionStatusType") -> None:
@@ -45,7 +57,7 @@ def _print_session_status(status: "SessionStatusType") -> None:
         _console.print(f"[red]Error:[/red] {err}")
 
 
-_LOCAL_HOSTS = {"127.0.0.1", "localhost"}
+_LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
 def _daemon_connect_error(host: str, port: int) -> None:
@@ -118,7 +130,7 @@ def daemon_serve(
 
 @daemon_app.command("start")
 def daemon_start(
-    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    host: Annotated[str, typer.Option("--host", callback=_validate_host)] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
     draft_interval_minutes: Annotated[
         int, typer.Option("--draft-interval-minutes", help="0なら自動ドラフト生成なし", min=0)
@@ -133,7 +145,7 @@ def daemon_start(
 
 @daemon_app.command("stop")
 def daemon_stop(
-    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    host: Annotated[str, typer.Option("--host", callback=_validate_host)] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
 ) -> None:
     """録音セッションを停止します。"""
@@ -142,7 +154,7 @@ def daemon_stop(
 
 @daemon_app.command("status")
 def daemon_status(
-    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    host: Annotated[str, typer.Option("--host", callback=_validate_host)] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
 ) -> None:
     """現在のセッション状態を表示します。"""

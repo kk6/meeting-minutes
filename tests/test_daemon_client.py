@@ -154,11 +154,20 @@ class TestDaemonClient:
         assert timeout["read"] == 10.0
 
     def test_client_disables_trust_env_to_bypass_system_proxy(self) -> None:
-        with patch("httpx.Client") as mock_httpx_client:
-            DaemonClient()._client()
+        # 公開 API (start) を呼びつつ、httpx.Client コンストラクタの kwargs を捕捉する。
+        # side_effect は実 Client を返すため start() は最後まで完了する。
+        transport = _FixedJsonTransport(201, _RUNNING_JSON)
+        captured_kwargs: dict[str, object] = {}
+        real_client_class = httpx.Client  # patch 適用前に実クラスを退避
 
-        mock_httpx_client.assert_called_once()
-        assert mock_httpx_client.call_args.kwargs["trust_env"] is False
+        def fake_client_factory(**kwargs: object) -> httpx.Client:
+            captured_kwargs.update(kwargs)
+            return real_client_class(base_url=str(kwargs["base_url"]), transport=transport)
+
+        with patch("meeting_minutes.daemon.client.httpx.Client", side_effect=fake_client_factory):
+            DaemonClient().start(StartRequest())
+
+        assert captured_kwargs.get("trust_env") is False
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +247,30 @@ class TestStartCommand:
         assert result.exit_code == 1
         assert "ポートフォワーディング" in result.output
         assert "daemon serve を起動" not in result.output
+
+    def test_ipv6_loopback_treated_as_local_endpoint(self, runner: CliRunner) -> None:
+        mock_client = MagicMock()
+        mock_client.start.side_effect = httpx.ConnectError("connection refused")
+        with patch("meeting_minutes.daemon.cli._make_daemon_client", return_value=mock_client):
+            result = runner.invoke(app, ["daemon", "start", "--host", "::1"])
+
+        assert result.exit_code == 1
+        assert "daemon serve" in result.output
+        assert "ポートフォワーディング" not in result.output
+
+    def test_rejects_host_with_scheme(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["daemon", "start", "--host", "http://127.0.0.1"])
+
+        assert result.exit_code != 0
+        # Rich パネルでメッセージが折り返されるため、安定する後半部分で判定する
+        assert "スキーマ" in result.output
+
+    def test_rejects_host_with_path(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["daemon", "start", "--host", "127.0.0.1/api"])
+
+        assert result.exit_code != 0
+        # Rich パネルでメッセージが折り返されるため、安定する後半部分で判定する
+        assert "スキーマ" in result.output
 
     def test_rejects_negative_draft_interval(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["daemon", "start", "--draft-interval-minutes", "-1"])
