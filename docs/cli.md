@@ -145,7 +145,7 @@ uv run meeting-minutes live --device "BlackHole 64ch" --channels 2
 
 ## daemon
 
-ローカル制御サーバを起動します。起動すると `start` / `stop` / `status` コマンドで録音セッションを HTTP API 経由で制御できます。
+ローカル制御サーバを起動します。HTTP API（`/sessions/start`・`/sessions/stop`・`/sessions/current`）経由で録音セッションを制御できます。
 
 ```bash
 uv run meeting-minutes daemon

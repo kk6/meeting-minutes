@@ -55,7 +55,7 @@ class LiveSession:
         self._thread = threading.Thread(
             target=self._run,
             args=(config, draft_interval_minutes),
-            daemon=False,
+            daemon=True,
             name=f"live-session-{self._session_id}",
         )
         self._thread.start()

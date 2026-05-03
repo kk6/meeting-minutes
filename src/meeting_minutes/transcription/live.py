@@ -337,10 +337,10 @@ def run_live(
             on_overflow=overflow_recorder.record,
         ):
             elapsed_seconds += config.audio.chunk_seconds
-            if stop_event is not None and stop_event.is_set():
-                break
             audio_recording.write(chunk, errors)
             transcription_runner.process(audio_preprocessor.process(chunk))
+            if stop_event is not None and stop_event.is_set():
+                break
             draft_scheduler.maybe_generate(elapsed_seconds)
         if transcription_runner.flush():
             draft_scheduler.maybe_generate(elapsed_seconds)

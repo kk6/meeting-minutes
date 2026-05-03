@@ -76,6 +76,22 @@ class TestStartSession:
         assert kwargs["overrides"] == {"audio.chunk_seconds": 4}
         assert kwargs["draft_interval_minutes"] == 5
 
+    def test_returns_422_when_override_raises_value_error(
+        self, client: TestClient, fake_session: MagicMock
+    ) -> None:
+        fake_session.start.side_effect = ValueError("unknown section: bad.key")
+
+        response = client.post("/sessions/start", json={"overrides": {"bad.key": 1}})
+
+        assert response.status_code == 422
+
+    def test_returns_422_for_unknown_top_level_field(
+        self, client: TestClient, fake_session: MagicMock
+    ) -> None:
+        response = client.post("/sessions/start", json={"unknownField": "value"})
+
+        assert response.status_code == 422
+
 
 class TestStopSession:
     def test_returns_200_with_stopping_state_when_running(
