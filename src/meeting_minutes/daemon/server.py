@@ -49,7 +49,6 @@ app = FastAPI(
     lifespan=_lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url=None,
 )
 
 # localhost 上の Web UI からの呼び出しを許可しつつ、外部オリジンからの CSRF を防ぐ。
