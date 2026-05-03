@@ -5,6 +5,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+SessionState = Literal["idle", "running", "stopping", "failed"]
+
 
 class StartRequest(BaseModel):
     """POST /sessions/start のリクエストボディ。全フィールドはオプション。"""
@@ -19,7 +21,7 @@ class SessionStatus(BaseModel):
     """セッションの現在状態。/sessions/current と /sessions/start のレスポンス。"""
 
     id: str
-    state: Literal["idle", "running", "stopping", "failed"]
+    state: SessionState
     started_at: datetime | None = None
     elapsed_seconds: int = 0
     session_dir: str | None = None

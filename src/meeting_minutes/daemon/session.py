@@ -5,15 +5,12 @@ import threading
 import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal
 
 from meeting_minutes.config import AppConfig, apply_overrides
-from meeting_minutes.daemon.schema import SessionStatus
+from meeting_minutes.daemon.schema import SessionState, SessionStatus
 from meeting_minutes.transcription.live import run_live
 
 logger = logging.getLogger(__name__)
-
-SessionState = Literal["idle", "running", "stopping", "failed"]
 
 # モデルロード待ちではなく、デバイス未検出などの同期的な起動失敗を
 # キャッチするための短い窓。長いロード時間を待つ目的ではない。
