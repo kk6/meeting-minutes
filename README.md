@@ -51,6 +51,8 @@ uv run meeting-minutes daemon status
 uv run meeting-minutes daemon stop
 ```
 
+Raycast から daemon を制御したい場合は [scripts/raycast/README.md](./scripts/raycast/README.md) を参照してください。
+
 設定例は [config.example.toml](./config.example.toml) を参照してください。
 
 詳しいCLI説明は [docs/cli.md](./docs/cli.md) を参照してください。
