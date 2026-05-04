@@ -26,18 +26,19 @@ This is a **personal tool** the author runs locally on their own Mac. The repo i
 - `src/meeting_minutes/`: application code
 - `tests/`: pytest tests
 - `docs/`: user-facing documentation
-- `config.example.toml`: example runtime configuration
-- `output/`: generated runtime artifacts when `[output] base_dir = "output"` is set in config (e.g. `config.example.toml`); do not treat as source. Default for global install is `$XDG_DATA_HOME/meeting-minutes/output/`
+- `src/meeting_minutes/config/templates/config.example.toml`: example runtime configuration (packaged as wheel data so `meeting-minutes config init` can write it out after `uv tool install .`)
+- `output/`: generated runtime artifacts when `[output] base_dir = "output"` is set in config; do not treat as source. Default for global install is `$XDG_DATA_HOME/meeting-minutes/output/`
 
 Important modules:
 
-- `cli.py`: Typer command definitions and CLI override wiring. **As command groups grow, extract them into a subpackage (e.g. `daemon/cli.py` for `daemon` subcommands) instead of accumulating helper functions directly in `cli.py`.** Existing top-level commands such as `devices`, `check`, `live`, `draft`, `finalize`, and `clean` remain in `cli.py` for now; refactor them out the same way once their helpers start to grow.
+- `cli.py`: Typer command definitions and CLI override wiring. **As command groups grow, extract them into a subpackage (e.g. `daemon/cli.py` for `daemon` subcommands, `config/cli.py` for `config` subcommands) instead of accumulating helper functions directly in `cli.py`.** Existing top-level commands such as `devices`, `check`, `live`, `draft`, `finalize`, and `clean` remain in `cli.py` for now; refactor them out the same way once their helpers start to grow.
 - `live.py`: realtime recording/transcription loop
 - `audio_stream.py`: input stream buffering
 - `transcribe.py`: faster-whisper wrapper
 - `summarize.py`: chunking and minutes generation workflow
 - `ollama_client.py`: Ollama HTTP client
-- `config.py`: Pydantic settings and overrides
+- `config/__init__.py`: Pydantic settings, overrides, and `resolve_config_source` / `read_template_config_text` helpers
+- `config/cli.py`: `meeting-minutes config` subcommands (init / path / show / edit) and `describe_config_source` shared with `daemon serve` startup logging
 - `metadata.py`: session metadata model and JSON output
 - `output.py`: transcript/session file helpers
 - `dedupe.py`: transcript duplicate suppression
@@ -76,6 +77,15 @@ uv run meeting-minutes daemon serve
 uv run meeting-minutes daemon start
 uv run meeting-minutes daemon status
 uv run meeting-minutes daemon stop
+```
+
+Config management:
+
+```bash
+uv run meeting-minutes config init        # write template to XDG default path
+uv run meeting-minutes config path        # show resolved config path
+uv run meeting-minutes config show        # dump resolved AppConfig as TOML
+uv run meeting-minutes config edit        # open in $EDITOR
 ```
 
 ## Python Style

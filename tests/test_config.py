@@ -8,7 +8,10 @@ from meeting_minutes.config import (
     VadConfig,
     appconfig_section_names,
     apply_overrides,
+    default_config_path,
     load_config,
+    read_template_config_text,
+    resolve_config_source,
 )
 
 
@@ -56,7 +59,7 @@ ollama_model = "gemma4:latest"
 
 
 def test_example_config_loads() -> None:
-    config = load_config(Path("config.example.toml"))
+    config = load_config(Path("src/meeting_minutes/config/templates/config.example.toml"))
 
     assert config.audio.device == "BlackHole 2ch"
 
@@ -114,7 +117,7 @@ def test_vad_config_rejects_frame_longer_than_max() -> None:
 
 
 def test_example_config_loads_cleaning_section() -> None:
-    config = load_config(Path("config.example.toml"))
+    config = load_config(Path("src/meeting_minutes/config/templates/config.example.toml"))
 
     assert config.cleaning.chunk_size == 4000
     assert config.cleaning.output_filename == "transcript_clean.md"
@@ -314,3 +317,48 @@ def test_apply_overrides_accepts_all_appconfig_sections() -> None:
         override_value = _make_different_value(current_value)
         result = apply_overrides(config, {f"{section}.{field_name}": override_value})
         assert getattr(getattr(result, section), field_name) == override_value
+
+
+class TestResolveConfigSource:
+    def test_returns_explicit_when_path_given(self, tmp_path: Path) -> None:
+        explicit = tmp_path / "explicit.toml"
+        # 明示指定は存在チェックを行わない（load_config 側のエラーに任せる）
+        source = resolve_config_source(explicit)
+        assert source.kind == "explicit"
+        assert source.path == explicit
+
+    def test_returns_auto_discovered_when_xdg_config_exists(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        config_dir = tmp_path / "config" / "meeting-minutes"
+        config_dir.mkdir(parents=True)
+        (config_dir / "config.toml").touch()
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+
+        source = resolve_config_source(None)
+
+        assert source.kind == "auto_discovered"
+        assert source.path == default_config_path()
+
+    def test_returns_defaults_when_no_config_found(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
+
+        source = resolve_config_source(None)
+
+        assert source.kind == "defaults"
+        assert source.path is None
+
+
+def test_read_template_config_text_returns_loadable_toml() -> None:
+    """`config init` で書き出す内容がそのまま `load_config` で読み込めることを保証する。"""
+    import tomllib
+
+    text = read_template_config_text()
+
+    # TOML としてパース可能
+    tomllib.loads(text)
+    # AppConfig としても妥当
+    assert "[audio]" in text
+    assert "[output]" in text

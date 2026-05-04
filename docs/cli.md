@@ -31,14 +31,18 @@ uv tool install .
 （未設定時は `~/.config/meeting-minutes/config.toml`）を自動で読み込みます。
 存在しなければ環境変数と組み込み既定値だけで動作します。
 
+雛形の生成・参照先の確認・編集は `config` サブコマンドで完結します。詳しくは [config](#config) を参照してください。
+
 `output.base_dir` の既定値は `$XDG_DATA_HOME/meeting-minutes/output/`
 （未設定時は `~/.local/share/meeting-minutes/output/`）です。
 
 明示的に上書きする方法:
 
 - 設定ファイルで指定: TOML 中の相対パスは設定ファイル自身のディレクトリ基準で解決されます。
-  例えばリポジトリ直下の `config.example.toml` に `base_dir = "output"` と書いて
-  `--config config.example.toml` で渡すと `<repo>/output/` に解決されます。
+  例えば雛形 `src/meeting_minutes/config/templates/config.example.toml` を `--config` で渡すと、
+  `base_dir = "output"` がそのディレクトリ基準で解決されます（リポジトリ内では
+  `src/meeting_minutes/config/templates/output/` になるので、通常は `meeting-minutes config init`
+  で `~/.config/meeting-minutes/config.toml` にコピーしてから編集します）。
 - 環境変数で指定: `MEETING_MINUTES_OUTPUT__BASE_DIR=path` を設定すると env 経路で
   上書きされ、相対パスは cwd 基準（=従来どおり）として扱われます。設定ファイル
   と異なり anchor されません。
@@ -52,7 +56,7 @@ uv tool install .
 4. 必要に応じて `clean` で文字起こしを整形する
 5. `draft` または `finalize` で議事録Markdownを生成する
 
-以下の例の `<base_dir>` は `output.base_dir` の解決結果（XDG 既定なら `~/.local/share/meeting-minutes/output`、`config.example.toml` を渡せば `<repo>/output`）。
+以下の例の `<base_dir>` は `output.base_dir` の解決結果（XDG 既定なら `~/.local/share/meeting-minutes/output`、雛形 `src/meeting_minutes/config/templates/config.example.toml` を `--config` で渡せばそのディレクトリ基準）。
 本ドキュメント内の他コマンド例も同様に読み替えてください。
 
 ```bash
@@ -86,7 +90,7 @@ uv run meeting-minutes check
 設定ファイルを指定する場合:
 
 ```bash
-uv run meeting-minutes check --config ./config.example.toml
+uv run meeting-minutes check --config ./src/meeting_minutes/config/templates/config.example.toml
 ```
 
 ## devices
@@ -208,7 +212,7 @@ uv run meeting-minutes daemon serve --port 9000
 設定ファイルを指定する場合:
 
 ```bash
-uv run meeting-minutes daemon serve --config ./config.example.toml
+uv run meeting-minutes daemon serve --config ./src/meeting_minutes/config/templates/config.example.toml
 ```
 
 | オプション | 既定値 | 説明 |
@@ -217,6 +221,20 @@ uv run meeting-minutes daemon serve --config ./config.example.toml
 | `--config` | なし | TOML設定ファイル |
 
 `127.0.0.1` のみに bind するため、外部ホストから TCP 接続することはできません。ブラウザ経由の CSRF は Origin ヘッダー検証（localhost / 127.0.0.1 以外を 403 で拒否）と CORS ポリシーの組み合わせで防いでいます。停止するには `Ctrl+C` を押します。
+
+起動直後に以下の INFO ログを出します。どの設定で動いているかを最初の数行で把握できます。
+
+```text
+INFO: config source: auto_discovered (/Users/<you>/.config/meeting-minutes/config.toml)
+INFO: output base_dir: /Users/<you>/.local/share/meeting-minutes/output
+INFO: listening on http://127.0.0.1:8765
+```
+
+`config source` は次のいずれかの形式で出ます。
+
+- `explicit (<path>)` — `--config` で明示指定された場合
+- `auto_discovered (<path>)` — XDG 既定パスを auto-discovery で拾った場合
+- `defaults (no config file at <would-be-path>)` — 設定ファイルが無く組み込み既定値だけで動いている場合
 
 #### API ドキュメント
 
@@ -345,7 +363,7 @@ uv run meeting-minutes draft <base_dir>/current/transcript_live.md --output <bas
 設定ファイルを使う場合:
 
 ```bash
-uv run meeting-minutes draft <base_dir>/current/transcript_live.md --config ./config.example.toml
+uv run meeting-minutes draft <base_dir>/current/transcript_live.md --config ./src/meeting_minutes/config/templates/config.example.toml
 ```
 
 ## finalize
@@ -376,12 +394,63 @@ uv run meeting-minutes finalize \
 uv run meeting-minutes finalize <base_dir>/current/transcript_live.md --output <base_dir>/current/minutes.md
 ```
 
+## config
+
+設定ファイルの初期化・参照先確認・編集をまとめた管理コマンドです。
+
+### config init
+
+XDG 既定パス (`~/.config/meeting-minutes/config.toml`) に同梱の雛形を書き出します。
+既存ファイルがある場合は `--force` を付けないと上書きしません。
+
+```bash
+meeting-minutes config init
+meeting-minutes config init --force   # 既存を上書きする
+```
+
+### config path
+
+現在 `--config` 未指定時に参照される config パスを表示します。
+
+```bash
+meeting-minutes config path
+# 例: source: auto_discovered
+#     path:   /Users/<you>/.config/meeting-minutes/config.toml
+```
+
+`--config` を指定するとそのパスを `explicit` 表示で確認できます。設定ファイルが
+未作成のときは `defaults (no config file)` と `would-be path:`（`config init` が
+作成するパス）を出します。
+
+### config show
+
+env / TOML / 既定値を解決した後の `AppConfig` を出力します。
+
+```bash
+meeting-minutes config show               # TOML 形式（既定）
+meeting-minutes config show --format json # JSON 形式
+meeting-minutes config show --config ./foo.toml
+```
+
+`AppConfig` の None フィールド（`audio.device` 未指定など）は TOML が null を
+表現できないため出力から省かれます。
+
+### config edit
+
+auto-discovery で解決された config を `$EDITOR` で開きます。`$EDITOR` 未設定時は
+macOS の `open(1)` でデフォルトアプリに渡します。設定ファイルが未作成のときは
+先に `config init` するよう案内します。
+
+```bash
+meeting-minutes config edit
+```
+
 ## 設定ファイル
 
 TOML形式の設定ファイルを指定できます。
 
 ```bash
-uv run meeting-minutes live --config ./config.example.toml
+uv run meeting-minutes live --config ./src/meeting_minutes/config/templates/config.example.toml
 ```
 
 CLIオプションは設定ファイルより優先されます。
