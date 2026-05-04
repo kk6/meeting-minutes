@@ -59,18 +59,19 @@ EOF
 ## Commands
 
 グローバルインストール済みなら `uv run` を外して `meeting-minutes ...` で直接呼べます。
+以下の `<base_dir>` は `output.base_dir` の解決結果です（XDG 既定なら `~/.local/share/meeting-minutes/output`、`config.example.toml` を `--config` で渡したリポジトリ内ワークフローなら `<repo>/output`）。
 
 ```bash
 uv run meeting-minutes check
 uv run meeting-minutes devices
 uv run meeting-minutes live --device "BlackHole 2ch"
-uv run meeting-minutes draft ./output/current/transcript_live.md
-uv run meeting-minutes finalize ./output/current/transcript_live.md
+uv run meeting-minutes draft <base_dir>/<session>/transcript_live.md
+uv run meeting-minutes finalize <base_dir>/<session>/transcript_live.md
 # 任意: clean で整形してから finalize すると議事録の入力品質が上がる
-uv run meeting-minutes clean ./output/current/transcript_live.md
-uv run meeting-minutes finalize ./output/current/transcript_clean.md
+uv run meeting-minutes clean <base_dir>/<session>/transcript_live.md
+uv run meeting-minutes finalize <base_dir>/<session>/transcript_clean.md
 # liveを再起動して transcript が分かれた場合
-uv run meeting-minutes finalize ./output/session-1/transcript_live.md ./output/session-2/transcript_live.md
+uv run meeting-minutes finalize <base_dir>/session-1/transcript_live.md <base_dir>/session-2/transcript_live.md
 ```
 
 HTTP API 経由で制御する場合（daemon モード）:

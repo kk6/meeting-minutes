@@ -187,6 +187,71 @@ def test_load_config_uses_toml_value_when_env_absent(
     assert config.audio.device == "FromToml"
 
 
+def test_xdg_config_home_falls_back_when_value_is_relative(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """XDG 仕様により相対パスは無効扱い。フォールバックさせる。"""
+    monkeypatch.setenv("XDG_CONFIG_HOME", "relative/path")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    (tmp_path / ".config" / "meeting-minutes").mkdir(parents=True)
+    (tmp_path / ".config" / "meeting-minutes" / "config.toml").write_text(
+        '[audio]\ndevice = "FromHomeFallback"\n', encoding="utf-8"
+    )
+
+    config = load_config(None)
+
+    assert config.audio.device == "FromHomeFallback"
+
+
+def test_xdg_data_home_falls_back_when_value_is_relative(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", "relative/path")
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    config = load_config(None)
+
+    assert config.output.base_dir == tmp_path / ".local" / "share" / "meeting-minutes" / "output"
+
+
+def test_relative_base_dir_in_toml_resolved_against_config_dir(
+    tmp_path: Path,
+) -> None:
+    """TOML 中の相対パスは cwd ではなく config ファイルのディレクトリ基準で絶対化する。
+
+    グローバルインストール後に Raycast / 任意 cwd から呼んでも参照先・保存先が
+    変わらないようにするための保証。
+    """
+    config_file = tmp_path / "nested" / "config.toml"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text('[output]\nbase_dir = "results"\n', encoding="utf-8")
+
+    config = load_config(config_file)
+
+    assert config.output.base_dir == (tmp_path / "nested" / "results").resolve()
+
+
+def test_absolute_base_dir_in_toml_unchanged(tmp_path: Path) -> None:
+    absolute_target = tmp_path / "absolute" / "out"
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(f'[output]\nbase_dir = "{absolute_target}"\n', encoding="utf-8")
+
+    config = load_config(config_file)
+
+    assert config.output.base_dir == absolute_target
+
+
+def test_relative_glossary_file_in_toml_resolved_against_config_dir(
+    tmp_path: Path,
+) -> None:
+    config_file = tmp_path / "config.toml"
+    config_file.write_text('[vocabulary]\nglossary_file = "vocab/glossary.txt"\n', encoding="utf-8")
+
+    config = load_config(config_file)
+
+    assert config.vocabulary.glossary_file == (tmp_path / "vocab" / "glossary.txt").resolve()
+
+
 def test_apply_overrides_accepts_all_appconfig_sections() -> None:
     """allowed_sections が AppConfig のネスト BaseModel セクションから動的に導出される。
 

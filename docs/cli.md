@@ -44,15 +44,18 @@ uv tool install .
 4. 必要に応じて `clean` で文字起こしを整形する
 5. `draft` または `finalize` で議事録Markdownを生成する
 
+以下の例の `<base_dir>` は `output.base_dir` の解決結果（XDG 既定なら `~/.local/share/meeting-minutes/output`、`config.example.toml` を渡せば `<repo>/output`）。
+本ドキュメント内の他コマンド例も同様に読み替えてください。
+
 ```bash
 uv run meeting-minutes check
 uv run meeting-minutes devices
 uv run meeting-minutes live --device "BlackHole 64ch"
-uv run meeting-minutes draft ./output/2026-04-28_193822_live_meeting/transcript_live.md
-uv run meeting-minutes finalize ./output/2026-04-28_193822_live_meeting/transcript_live.md
+uv run meeting-minutes draft <base_dir>/2026-04-28_193822_live_meeting/transcript_live.md
+uv run meeting-minutes finalize <base_dir>/2026-04-28_193822_live_meeting/transcript_live.md
 # 任意: clean で整形してから finalize すると議事録の入力品質が上がる
-uv run meeting-minutes clean ./output/2026-04-28_193822_live_meeting/transcript_live.md
-uv run meeting-minutes finalize ./output/2026-04-28_193822_live_meeting/transcript_clean.md
+uv run meeting-minutes clean <base_dir>/2026-04-28_193822_live_meeting/transcript_live.md
+uv run meeting-minutes finalize <base_dir>/2026-04-28_193822_live_meeting/transcript_clean.md
 ```
 
 ## check

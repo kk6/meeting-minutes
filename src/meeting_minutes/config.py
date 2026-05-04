@@ -8,16 +8,28 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _xdg_dir(env_var: str, fallback: Path) -> Path:
+    """XDG 環境変数を読み取り、絶対パスのときだけ採用する。
+
+    XDG Base Directory 仕様では相対パスは無効扱いとされており、設定ミスで相対値が
+    入った場合に成果物の保存先が cwd 依存になるのを防ぐため fallback に切り替える。
+    """
+    value = os.environ.get(env_var)
+    if value:
+        candidate = Path(value)
+        if candidate.is_absolute():
+            return candidate
+    return fallback
+
+
 def _xdg_config_home() -> Path:
-    """`$XDG_CONFIG_HOME` を返す。未設定なら XDG 仕様の既定値 `~/.config` を返す。"""
-    value = os.environ.get("XDG_CONFIG_HOME")
-    return Path(value) if value else Path.home() / ".config"
+    """`$XDG_CONFIG_HOME` を返す。未設定または相対値なら `~/.config` を返す。"""
+    return _xdg_dir("XDG_CONFIG_HOME", Path.home() / ".config")
 
 
 def _xdg_data_home() -> Path:
-    """`$XDG_DATA_HOME` を返す。未設定なら XDG 仕様の既定値 `~/.local/share` を返す。"""
-    value = os.environ.get("XDG_DATA_HOME")
-    return Path(value) if value else Path.home() / ".local" / "share"
+    """`$XDG_DATA_HOME` を返す。未設定または相対値なら `~/.local/share` を返す。"""
+    return _xdg_dir("XDG_DATA_HOME", Path.home() / ".local" / "share")
 
 
 def default_config_path() -> Path:
@@ -195,7 +207,34 @@ def load_config(path: Path | None) -> AppConfig:
     if not path.exists():
         raise FileNotFoundError(f"設定ファイルが見つかりません: {path}")
 
-    return _load_appconfig_with_toml(path)
+    config = _load_appconfig_with_toml(path)
+    return _resolve_relative_paths(config, path.parent.resolve())
+
+
+# 相対パスとして書かれた場合に config ファイルのディレクトリを基準に絶対化するフィールド。
+# プロセスの cwd ではなく config の場所を基準にすることで、グローバル実行（任意 cwd）でも
+# 同じ config が同じ場所を指す。
+_PATH_FIELDS_TO_ANCHOR: tuple[tuple[str, str], ...] = (
+    ("output", "base_dir"),
+    ("vocabulary", "glossary_file"),
+    ("vocabulary", "participants_file"),
+)
+
+
+def _resolve_relative_paths(config: AppConfig, anchor: Path) -> AppConfig:
+    """`config` 中の相対パス指定フィールドを `anchor` 基準で絶対化した新インスタンスを返す。"""
+    section_updates: dict[str, BaseModel] = {}
+    for section_name, field_name in _PATH_FIELDS_TO_ANCHOR:
+        section = getattr(config, section_name)
+        value: Path | None = getattr(section, field_name)
+        if value is None or value.is_absolute():
+            continue
+        resolved = (anchor / value).resolve()
+        updated_section = section_updates.get(section_name, section)
+        section_updates[section_name] = updated_section.model_copy(update={field_name: resolved})
+    if not section_updates:
+        return config
+    return config.model_copy(update=section_updates)
 
 
 def _load_appconfig_with_toml(path: Path) -> AppConfig:
