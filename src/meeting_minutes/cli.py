@@ -10,10 +10,12 @@ from rich.table import Table
 from meeting_minutes.audio.devices import list_input_devices
 from meeting_minutes.config import apply_overrides, load_config
 from meeting_minutes.core.checks import run_checks
+from meeting_minutes.daemon.cli import daemon_app
 from meeting_minutes.errors import MeetingMinutesError
 from meeting_minutes.minutes.summarize import MinutesMode
 
 app = typer.Typer(no_args_is_help=True)
+app.add_typer(daemon_app, name="daemon")
 console = Console()
 
 
@@ -192,22 +194,6 @@ def clean(
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=1) from exc
     console.print(f"[green]Cleaned:[/green] {output_path}")
-
-
-@app.command()
-def daemon(
-    port: Annotated[int, typer.Option("--port")] = 8765,
-    config: Annotated[Path | None, typer.Option("--config", help="TOML設定ファイル")] = None,
-) -> None:
-    """ローカル制御サーバを起動します（Ctrl+C で停止）。127.0.0.1 のみに bind します。"""
-    import uvicorn
-
-    from meeting_minutes.daemon.server import app as daemon_app
-    from meeting_minutes.daemon.server import configure
-
-    app_config = load_config(config)
-    configure(app_config)
-    uvicorn.run(daemon_app, host="127.0.0.1", port=port)
 
 
 if __name__ == "__main__":

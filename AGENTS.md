@@ -1,6 +1,15 @@
-# AGENTS.md
+# meeting-minutes
 
 Guidance for coding agents working in this repository.
+
+## Project Stance (read this first)
+
+This is a **personal tool** the author runs locally on their own Mac. The repo is public but is not meant to be a general-purpose product:
+
+- The author is the only intended user. There is no support, no roadmap, no release process.
+- External contributions are not solicited. Users who want changes should fork and edit freely.
+- **Avoid over-engineering for hypothetical other users.** Things like multi-user support, remote connectivity, IPv6, exhaustive input validation, defensive guards against contrived inputs, and elaborate error UX are explicitly out of scope unless the author needs them.
+- Prefer the simplest implementation that works for the author's own usage. If a code review (human or AI) suggests adding generality "for users", push back and only adopt the change if it benefits the author's actual workflow or fixes a real defect.
 
 ## Project Overview
 
@@ -22,7 +31,7 @@ Guidance for coding agents working in this repository.
 
 Important modules:
 
-- `cli.py`: Typer command definitions and CLI override wiring
+- `cli.py`: Typer command definitions and CLI override wiring. **As command groups grow, extract them into a subpackage (e.g. `daemon/cli.py` for `daemon` subcommands) instead of accumulating helper functions directly in `cli.py`.** Existing top-level commands such as `devices`, `check`, `live`, `draft`, `finalize`, and `clean` remain in `cli.py` for now; refactor them out the same way once their helpers start to grow.
 - `live.py`: realtime recording/transcription loop
 - `audio_stream.py`: input stream buffering
 - `transcribe.py`: faster-whisper wrapper
@@ -55,6 +64,18 @@ uv run meeting-minutes devices
 uv run meeting-minutes live --device "BlackHole 64ch"
 uv run meeting-minutes draft ./output/<session>/transcript_live.md
 uv run meeting-minutes finalize ./output/<session>/transcript_live.md
+```
+
+Daemon mode (HTTP API control):
+
+```bash
+# Terminal 1: start the control server
+uv run meeting-minutes daemon serve
+
+# Terminal 2: control the recording session
+uv run meeting-minutes daemon start
+uv run meeting-minutes daemon status
+uv run meeting-minutes daemon stop
 ```
 
 ## Python Style

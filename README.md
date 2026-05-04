@@ -2,6 +2,14 @@
 
 Macローカルで動かすリアルタイム音声文字起こし・議事録生成CLIです。
 
+## このリポジトリについて
+
+このツールは作者個人が自分の Mac 上で会議のリアルタイム文字起こし、議事録作成、YouTube/podcast の文字起こしや要約、英語音声の翻訳などに使うために作っているものです。
+ソースコードは公開していますが、汎用ツールとして他の人が使うことは特に想定していません。
+そのため、個人用途には不要な抽象化・汎化（例: マルチユーザー対応、リモート接続、IPv6 対応、複雑な入力バリデーション、過剰な防御的コーディング）は意図的に入れていません。
+
+機能追加・改修・バグ修正をしたい場合は、Issue や PR ではなく fork してご自身の用途に合わせて自由に改変してください。作者は基本的に外部からの貢献やリクエストには対応しません。
+
 ## Setup
 
 ```bash
@@ -34,8 +42,13 @@ HTTP API 経由で制御する場合（daemon モード）:
 
 ```bash
 # ターミナル A: サーバを起動（Ctrl+C で停止）
-uv run meeting-minutes daemon
+uv run meeting-minutes daemon serve
 # → http://127.0.0.1:8765/docs で API ドキュメントを参照できます
+
+# ターミナル B: CLI から制御
+uv run meeting-minutes daemon start
+uv run meeting-minutes daemon status
+uv run meeting-minutes daemon stop
 ```
 
 設定例は [config.example.toml](./config.example.toml) を参照してください。

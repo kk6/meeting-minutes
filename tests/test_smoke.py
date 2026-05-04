@@ -21,15 +21,25 @@ def test_daemon_help() -> None:
     result = CliRunner().invoke(app, ["daemon", "--help"])
 
     assert result.exit_code == 0
+    assert "serve" in _strip_ansi(result.output)
+    assert "start" in _strip_ansi(result.output)
+    assert "stop" in _strip_ansi(result.output)
+    assert "status" in _strip_ansi(result.output)
+
+
+def test_daemon_serve_help() -> None:
+    result = CliRunner().invoke(app, ["daemon", "serve", "--help"])
+
+    assert result.exit_code == 0
     assert "--port" in _strip_ansi(result.output)
 
 
-def test_daemon_wires_config_and_runs() -> None:
+def test_daemon_serve_wires_config_and_runs() -> None:
     with (
         patch("meeting_minutes.daemon.server.configure") as mock_configure,
         patch("uvicorn.run") as mock_uvicorn_run,
     ):
-        result = CliRunner().invoke(app, ["daemon", "--port", "9999"])
+        result = CliRunner().invoke(app, ["daemon", "serve", "--port", "9999"])
 
     assert result.exit_code == 0
     mock_configure.assert_called_once()
