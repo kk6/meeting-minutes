@@ -1,5 +1,6 @@
 """daemon サブコマンド群の定義。"""
 
+import ipaddress
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
@@ -22,18 +23,33 @@ _console = Console()
 def _validate_host(value: str) -> str:
     """--host に渡されたホスト指定を検証・正規化する。
 
-    daemon serve は IPv4 ループバックにのみ bind するため、IPv6 リテラルや
-    すでに :port を含むような値は誤解を招くので拒否する。
-    `localhost` は OS によって ::1 へ先に解決される場合があり接続が
-    失敗しうるため、内部的に 127.0.0.1 へ正規化して扱う。
+    受け付ける形式:
+    - ホスト名（例: `example.com`）
+    - IPv4 アドレス（例: `127.0.0.1`）
+    - 角括弧付き IPv6 リテラル（例: `[::1]`）— SSH ポートフォワード等で使用
+
+    `localhost` は OS によって ::1 へ先に解決される場合があり、daemon serve
+    が IPv4 ループバックにのみ bind することで接続失敗しうるため、内部的に
+    127.0.0.1 へ正規化する。
     """
     value = value.strip()
     if not value:
         raise typer.BadParameter("--host が空です")
-    if any(c in value for c in "/:[]"):
+    if "://" in value or "/" in value:
+        raise typer.BadParameter("--host にスキーマや path は含められません")
+    if value.startswith("[") and value.endswith("]"):
+        inner = value[1:-1]
+        try:
+            ipaddress.IPv6Address(inner)
+        except ValueError as exc:
+            raise typer.BadParameter(
+                f"[...] 形式の中身は有効な IPv6 アドレスにしてください: {inner!r}"
+            ) from exc
+        return value
+    if any(c in value for c in ":[]"):
         raise typer.BadParameter(
-            "--host にはホスト名または IPv4 アドレスのみを指定してください "
-            "（http:// などのスキーマ、:port、IPv6 リテラルは未対応）"
+            "--host はホスト名 / IPv4 アドレス / [IPv6] 形式のいずれかにしてください "
+            "（http:// などのスキーマ、:port は不可）"
         )
     return "127.0.0.1" if value == "localhost" else value
 
