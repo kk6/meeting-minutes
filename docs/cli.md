@@ -247,6 +247,10 @@ uv run meeting-minutes daemon status
 | --- | --- | --- |
 | `--port` | `8765` | daemon のポート |
 
+### Raycast Script Commands
+
+Raycast から daemon を start / stop / status できるサンプルスクリプトを `scripts/raycast/` に置いています。curl で HTTP API を直接叩くため、起動オーバーヘッドはほぼありません。導入手順は [scripts/raycast/README.md](../scripts/raycast/README.md) を参照してください。
+
 ## clean
 
 文字起こしのフィラー・言い直し・重複・句読点不足を LLM で機械的に整形し、読みやすいテキストとして保存します。
