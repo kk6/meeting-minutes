@@ -252,6 +252,25 @@ def test_relative_glossary_file_in_toml_resolved_against_config_dir(
     assert config.vocabulary.glossary_file == (tmp_path / "vocab" / "glossary.txt").resolve()
 
 
+def test_env_relative_path_override_not_anchored_to_config_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """env 由来の相対パスは config ディレクトリで anchor されない。
+
+    anchor 対象を TOML 由来の値に限定することで、env 上書きの挙動が TOML の有無で
+    変わらないようにする（`MEETING_MINUTES_OUTPUT__BASE_DIR=output` を渡せば常に
+    cwd 相対の `output` として扱われ、TOML が存在しても挙動が変わらない）。
+    """
+    config_file = tmp_path / "nested" / "config.toml"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text('[output]\nbase_dir = "from-toml"\n', encoding="utf-8")
+    monkeypatch.setenv("MEETING_MINUTES_OUTPUT__BASE_DIR", "from-env")
+
+    config = load_config(config_file)
+
+    assert config.output.base_dir == Path("from-env")
+
+
 def test_apply_overrides_accepts_all_appconfig_sections() -> None:
     """allowed_sections が AppConfig のネスト BaseModel セクションから動的に導出される。
 

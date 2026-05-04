@@ -207,13 +207,13 @@ def load_config(path: Path | None) -> AppConfig:
     if not path.exists():
         raise FileNotFoundError(f"設定ファイルが見つかりません: {path}")
 
-    config = _load_appconfig_with_toml(path)
-    return _resolve_relative_paths(config, path.parent.resolve())
+    return _load_appconfig_with_toml(path)
 
 
-# 相対パスとして書かれた場合に config ファイルのディレクトリを基準に絶対化するフィールド。
-# プロセスの cwd ではなく config の場所を基準にすることで、グローバル実行（任意 cwd）でも
-# 同じ config が同じ場所を指す。
+# TOML 中で相対パスとして書かれた場合に config ファイルのディレクトリを基準に絶対化する
+# フィールド。プロセスの cwd ではなく config の場所を基準にすることで、グローバル実行
+# （任意 cwd）でも同じ config が同じ場所を指す。env 由来の値はユーザー意図を尊重するため
+# 変換しない。
 _PATH_FIELDS_TO_ANCHOR: tuple[tuple[str, str], ...] = (
     ("output", "base_dir"),
     ("vocabulary", "glossary_file"),
@@ -221,30 +221,37 @@ _PATH_FIELDS_TO_ANCHOR: tuple[tuple[str, str], ...] = (
 )
 
 
-def _resolve_relative_paths(config: AppConfig, anchor: Path) -> AppConfig:
-    """`config` 中の相対パス指定フィールドを `anchor` 基準で絶対化した新インスタンスを返す。"""
-    section_updates: dict[str, BaseModel] = {}
-    for section_name, field_name in _PATH_FIELDS_TO_ANCHOR:
-        section = getattr(config, section_name)
-        value: Path | None = getattr(section, field_name)
-        if value is None or value.is_absolute():
-            continue
-        resolved = (anchor / value).resolve()
-        updated_section = section_updates.get(section_name, section)
-        section_updates[section_name] = updated_section.model_copy(update={field_name: resolved})
-    if not section_updates:
-        return config
-    return config.model_copy(update=section_updates)
-
-
 def _load_appconfig_with_toml(path: Path) -> AppConfig:
     """env > TOML > defaults の優先順で `AppConfig` を構築する。
 
-    `TomlConfigSettingsSource` を `env_settings` の下、`defaults` の上に挟み込み、
-    TOML 値の上に環境変数を載せる。`toml_file` はクラス属性として渡す必要が
-    あるため、呼び出しごとに `AppConfig` のサブクラスを動的生成する。
+    `_AnchoredTomlSource` を `env_settings` の下、`defaults` の上に挟み込み、
+    TOML 値の上に環境変数を載せる。TOML 中の相対パスは config ファイルの
+    ディレクトリ基準で絶対化されるが、env 由来の値はそのまま採用する。
+    `toml_file` はクラス属性として渡す必要があるため、呼び出しごとに
+    `AppConfig` のサブクラスを動的生成する。
     """
+    from typing import Any
+
     from pydantic_settings import PydanticBaseSettingsSource, TomlConfigSettingsSource
+
+    anchor = path.parent.resolve()
+
+    class _AnchoredTomlSource(TomlConfigSettingsSource):
+        """TOML 中の相対パスを config ディレクトリ基準で絶対化する設定ソース。"""
+
+        def __call__(self) -> dict[str, Any]:
+            data = super().__call__()
+            for section_name, field_name in _PATH_FIELDS_TO_ANCHOR:
+                section = data.get(section_name)
+                if not isinstance(section, dict):
+                    continue
+                value = section.get(field_name)
+                if value is None:
+                    continue
+                p = Path(str(value))
+                if not p.is_absolute():
+                    section[field_name] = str((anchor / p).resolve())
+            return data
 
     class _ConfigWithToml(AppConfig):
         model_config = SettingsConfigDict(
@@ -265,7 +272,7 @@ def _load_appconfig_with_toml(path: Path) -> AppConfig:
             return (
                 init_settings,
                 env_settings,
-                TomlConfigSettingsSource(settings_cls),
+                _AnchoredTomlSource(settings_cls),
                 dotenv_settings,
                 file_secret_settings,
             )
