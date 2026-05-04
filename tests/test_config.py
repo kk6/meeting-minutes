@@ -252,6 +252,21 @@ def test_relative_glossary_file_in_toml_resolved_against_config_dir(
     assert config.vocabulary.glossary_file == (tmp_path / "vocab" / "glossary.txt").resolve()
 
 
+def test_relative_participants_file_in_toml_resolved_against_config_dir(
+    tmp_path: Path,
+) -> None:
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        '[vocabulary]\nparticipants_file = "vocab/participants.txt"\n', encoding="utf-8"
+    )
+
+    config = load_config(config_file)
+
+    assert (
+        config.vocabulary.participants_file == (tmp_path / "vocab" / "participants.txt").resolve()
+    )
+
+
 def test_env_relative_path_override_not_anchored_to_config_dir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
