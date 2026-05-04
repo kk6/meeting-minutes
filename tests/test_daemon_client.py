@@ -254,6 +254,39 @@ class TestStartCommand:
         assert "daemon serve" in result.output
         assert "ポートフォワーディング" not in result.output
 
+    def test_localhost_uppercase_treated_as_local_endpoint(self, runner: CliRunner) -> None:
+        mock_client = MagicMock()
+        mock_client.start.side_effect = httpx.ConnectError("connection refused")
+        with _patch_daemon_client(mock_client):
+            result = runner.invoke(app, ["daemon", "start", "--host", "LOCALHOST"])
+
+        assert result.exit_code == 1
+        assert "daemon serve" in result.output
+        assert "ポートフォワーディング" not in result.output
+
+    def test_collapses_traceback_in_5xx_detail(self, runner: CliRunner) -> None:
+        # daemon は startup 失敗時に traceback.format_exc() を detail に入れるため、
+        # CLI 側で安全なメッセージへ畳むことを検証する。
+        traceback_detail = (
+            "Traceback (most recent call last):\n"
+            '  File "/x/y.py", line 1, in <module>\n'
+            "    boom()\n"
+            "RuntimeError: kaboom"
+        )
+        mock_client = MagicMock()
+        http_err = httpx.HTTPStatusError(
+            "500",
+            request=MagicMock(),
+            response=MagicMock(json=lambda: {"detail": traceback_detail}),
+        )
+        mock_client.start.side_effect = http_err
+        with _patch_daemon_client(mock_client):
+            result = runner.invoke(app, ["daemon", "start"])
+
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        assert "daemon ログ" in result.output
+
     def test_non_loopback_host_suggests_port_forwarding(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.start.side_effect = httpx.ConnectError("connection refused")

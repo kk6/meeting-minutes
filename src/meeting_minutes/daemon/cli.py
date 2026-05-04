@@ -51,7 +51,7 @@ def _validate_host(value: str) -> str:
             "--host はホスト名 / IPv4 アドレス / [IPv6] 形式のいずれかにしてください "
             "（http:// などのスキーマ、:port は不可）"
         )
-    return "127.0.0.1" if value == "localhost" else value
+    return "127.0.0.1" if value.lower() == "localhost" else value
 
 
 def _make_daemon_client(host: str, port: int) -> "DaemonClientType":
@@ -108,9 +108,14 @@ def _daemon_timeout_error(host: str, port: int) -> None:
 
 def _http_error_detail(exc: "httpx.HTTPStatusError") -> str:
     try:
-        return str(exc.response.json().get("detail", exc))
+        detail = str(exc.response.json().get("detail", exc))
     except (ValueError, AttributeError):
         return str(exc)
+    # daemon は startup 失敗時に traceback.format_exc() を detail に詰めるため、
+    # 端末を埋めるトレースバックを表示せず安全なメッセージに畳む（詳細はログ参照）。
+    if "\n" in detail or detail.startswith("Traceback"):
+        return "daemon でエラーが発生しました（詳細は daemon ログを参照してください）"
+    return detail
 
 
 def _invoke_daemon(
