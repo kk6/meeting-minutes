@@ -1,10 +1,45 @@
 """アプリ全体の設定を pydantic モデルで定義し、TOML / 環境変数 / CLI 上書きから組み立てる。"""
 
+import os
 from pathlib import Path
 from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _xdg_dir(env_var: str, fallback: Path) -> Path:
+    """XDG 環境変数を読み取り、絶対パスのときだけ採用する。
+
+    XDG Base Directory 仕様では相対パスは無効扱いとされており、設定ミスで相対値が
+    入った場合に成果物の保存先が cwd 依存になるのを防ぐため fallback に切り替える。
+    """
+    value = os.environ.get(env_var)
+    if value:
+        candidate = Path(value)
+        if candidate.is_absolute():
+            return candidate
+    return fallback
+
+
+def _xdg_config_home() -> Path:
+    """`$XDG_CONFIG_HOME` を返す。未設定または相対値なら `~/.config` を返す。"""
+    return _xdg_dir("XDG_CONFIG_HOME", Path.home() / ".config")
+
+
+def _xdg_data_home() -> Path:
+    """`$XDG_DATA_HOME` を返す。未設定または相対値なら `~/.local/share` を返す。"""
+    return _xdg_dir("XDG_DATA_HOME", Path.home() / ".local" / "share")
+
+
+def default_config_path() -> Path:
+    """`load_config(None)` が auto-discovery で参照する設定ファイルのパスを返す。"""
+    return _xdg_config_home() / "meeting-minutes" / "config.toml"
+
+
+def _default_output_dir() -> Path:
+    """セッション成果物の既定出力先を返す（XDG_DATA_HOME ベース）。"""
+    return _xdg_data_home() / "meeting-minutes" / "output"
 
 
 class AudioConfig(BaseModel):
@@ -94,7 +129,7 @@ class SummarizationConfig(BaseModel):
 class OutputConfig(BaseModel):
     """成果物（文字起こし、音声）の出力ディレクトリと保存可否の設定。"""
 
-    base_dir: Path = Path("output")
+    base_dir: Path = Field(default_factory=_default_output_dir)
     save_transcript: bool = True
     save_audio: bool = True
 
@@ -154,20 +189,95 @@ class AppConfig(BaseSettings):
 
 
 def load_config(path: Path | None) -> AppConfig:
-    """TOML から `AppConfig` を構築する。`path` が None なら環境変数と既定値のみで構築。
+    """TOML から `AppConfig` を構築する。
 
+    `path` が None の場合、まず `$XDG_CONFIG_HOME/meeting-minutes/config.toml`
+    （未設定時は `~/.config/meeting-minutes/config.toml`）を参照する。
+    存在しなければ環境変数と既定値のみで構築する。
+
+    値の優先順位は env (`MEETING_MINUTES_*`) > TOML > 組み込み既定値。
     `path` の不在・読み込み失敗・パース失敗・バリデーション失敗時は対応する例外を送出する。
     """
     if path is None:
-        return AppConfig()
+        candidate = default_config_path()
+        if candidate.exists():
+            path = candidate
+        else:
+            return AppConfig()
     if not path.exists():
         raise FileNotFoundError(f"設定ファイルが見つかりません: {path}")
 
-    import tomllib
+    return _load_appconfig_with_toml(path)
 
-    with path.open("rb") as file:
-        data = tomllib.load(file)
-    return AppConfig.model_validate(data)
+
+# TOML 中で相対パスとして書かれた場合に config ファイルのディレクトリを基準に絶対化する
+# フィールド。プロセスの cwd ではなく config の場所を基準にすることで、グローバル実行
+# （任意 cwd）でも同じ config が同じ場所を指す。env 由来の値はユーザー意図を尊重するため
+# 変換しない。
+_PATH_FIELDS_TO_ANCHOR: tuple[tuple[str, str], ...] = (
+    ("output", "base_dir"),
+    ("vocabulary", "glossary_file"),
+    ("vocabulary", "participants_file"),
+)
+
+
+def _load_appconfig_with_toml(path: Path) -> AppConfig:
+    """env > TOML > defaults の優先順で `AppConfig` を構築する。
+
+    `_AnchoredTomlSource` を `env_settings` の下、`defaults` の上に挟み込み、
+    TOML 値の上に環境変数を載せる。TOML 中の相対パスは config ファイルの
+    ディレクトリ基準で絶対化されるが、env 由来の値はそのまま採用する。
+    `toml_file` はクラス属性として渡す必要があるため、呼び出しごとに
+    `AppConfig` のサブクラスを動的生成する。
+    """
+    from typing import Any
+
+    from pydantic_settings import PydanticBaseSettingsSource, TomlConfigSettingsSource
+
+    anchor = path.parent.resolve()
+
+    class _AnchoredTomlSource(TomlConfigSettingsSource):
+        """TOML 中の相対パスを config ディレクトリ基準で絶対化する設定ソース。"""
+
+        def __call__(self) -> dict[str, Any]:
+            data = super().__call__()
+            for section_name, field_name in _PATH_FIELDS_TO_ANCHOR:
+                section = data.get(section_name)
+                if not isinstance(section, dict):
+                    continue
+                value = section.get(field_name)
+                if value is None:
+                    continue
+                p = Path(str(value))
+                if not p.is_absolute():
+                    section[field_name] = str((anchor / p).resolve())
+            return data
+
+    class _ConfigWithToml(AppConfig):
+        model_config = SettingsConfigDict(
+            env_prefix="MEETING_MINUTES_",
+            env_nested_delimiter="__",
+            toml_file=str(path),
+        )
+
+        @classmethod
+        def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+        ) -> tuple[PydanticBaseSettingsSource, ...]:
+            return (
+                init_settings,
+                env_settings,
+                _AnchoredTomlSource(settings_cls),
+                dotenv_settings,
+                file_secret_settings,
+            )
+
+    return _ConfigWithToml()
 
 
 def appconfig_section_names() -> set[str]:

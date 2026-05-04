@@ -125,6 +125,167 @@ def test_cleaning_config_rejects_unknown_fields() -> None:
         CleaningConfig(**{"chunk_size": 4000, "chunk_overlap": 0})
 
 
+def test_load_config_uses_xdg_default_when_path_is_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_dir = tmp_path / "config" / "meeting-minutes"
+    config_dir.mkdir(parents=True)
+    (config_dir / "config.toml").write_text('[audio]\ndevice = "FromXdgConfig"\n', encoding="utf-8")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+
+    config = load_config(None)
+
+    assert config.audio.device == "FromXdgConfig"
+
+
+def test_load_config_returns_defaults_when_no_xdg_config_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "nonexistent"))
+
+    config = load_config(None)
+
+    assert config.audio.device is None
+
+
+def test_output_base_dir_defaults_to_xdg_data_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+
+    config = load_config(None)
+
+    assert config.output.base_dir == tmp_path / "data" / "meeting-minutes" / "output"
+
+
+def test_load_config_env_overrides_toml_when_both_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """env 値が TOML 値より優先されることを担保する。
+
+    XDG auto-discovery で TOML を拾った場合に env 経由の上書き経路が壊れないことを検証する
+    （README/docs で案内している `MEETING_MINUTES_OUTPUT__BASE_DIR` などが効くこと）。
+    """
+    config_file = tmp_path / "config.toml"
+    config_file.write_text('[audio]\ndevice = "FromToml"\n', encoding="utf-8")
+    monkeypatch.setenv("MEETING_MINUTES_AUDIO__DEVICE", "FromEnv")
+
+    config = load_config(config_file)
+
+    assert config.audio.device == "FromEnv"
+
+
+def test_load_config_uses_toml_value_when_env_absent(
+    tmp_path: Path,
+) -> None:
+    """env が未設定なら TOML 値が組み込み既定値より優先される。"""
+    config_file = tmp_path / "config.toml"
+    config_file.write_text('[audio]\ndevice = "FromToml"\n', encoding="utf-8")
+
+    config = load_config(config_file)
+
+    assert config.audio.device == "FromToml"
+
+
+def test_xdg_config_home_falls_back_when_value_is_relative(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """XDG 仕様により相対パスは無効扱い。フォールバックさせる。"""
+    monkeypatch.setenv("XDG_CONFIG_HOME", "relative/path")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    (tmp_path / ".config" / "meeting-minutes").mkdir(parents=True)
+    (tmp_path / ".config" / "meeting-minutes" / "config.toml").write_text(
+        '[audio]\ndevice = "FromHomeFallback"\n', encoding="utf-8"
+    )
+
+    config = load_config(None)
+
+    assert config.audio.device == "FromHomeFallback"
+
+
+def test_xdg_data_home_falls_back_when_value_is_relative(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", "relative/path")
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    config = load_config(None)
+
+    assert config.output.base_dir == tmp_path / ".local" / "share" / "meeting-minutes" / "output"
+
+
+def test_relative_base_dir_in_toml_resolved_against_config_dir(
+    tmp_path: Path,
+) -> None:
+    """TOML 中の相対パスは cwd ではなく config ファイルのディレクトリ基準で絶対化する。
+
+    グローバルインストール後に Raycast / 任意 cwd から呼んでも参照先・保存先が
+    変わらないようにするための保証。
+    """
+    config_file = tmp_path / "nested" / "config.toml"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text('[output]\nbase_dir = "results"\n', encoding="utf-8")
+
+    config = load_config(config_file)
+
+    assert config.output.base_dir == (tmp_path / "nested" / "results").resolve()
+
+
+def test_absolute_base_dir_in_toml_unchanged(tmp_path: Path) -> None:
+    absolute_target = tmp_path / "absolute" / "out"
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(f'[output]\nbase_dir = "{absolute_target}"\n', encoding="utf-8")
+
+    config = load_config(config_file)
+
+    assert config.output.base_dir == absolute_target
+
+
+def test_relative_glossary_file_in_toml_resolved_against_config_dir(
+    tmp_path: Path,
+) -> None:
+    config_file = tmp_path / "config.toml"
+    config_file.write_text('[vocabulary]\nglossary_file = "vocab/glossary.txt"\n', encoding="utf-8")
+
+    config = load_config(config_file)
+
+    assert config.vocabulary.glossary_file == (tmp_path / "vocab" / "glossary.txt").resolve()
+
+
+def test_relative_participants_file_in_toml_resolved_against_config_dir(
+    tmp_path: Path,
+) -> None:
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        '[vocabulary]\nparticipants_file = "vocab/participants.txt"\n', encoding="utf-8"
+    )
+
+    config = load_config(config_file)
+
+    assert (
+        config.vocabulary.participants_file == (tmp_path / "vocab" / "participants.txt").resolve()
+    )
+
+
+def test_env_relative_path_override_not_anchored_to_config_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """env 由来の相対パスは config ディレクトリで anchor されない。
+
+    anchor 対象を TOML 由来の値に限定することで、env 上書きの挙動が TOML の有無で
+    変わらないようにする（`MEETING_MINUTES_OUTPUT__BASE_DIR=output` を渡せば常に
+    cwd 相対の `output` として扱われ、TOML が存在しても挙動が変わらない）。
+    """
+    config_file = tmp_path / "nested" / "config.toml"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text('[output]\nbase_dir = "from-toml"\n', encoding="utf-8")
+    monkeypatch.setenv("MEETING_MINUTES_OUTPUT__BASE_DIR", "from-env")
+
+    config = load_config(config_file)
+
+    assert config.output.base_dir == Path("from-env")
+
+
 def test_apply_overrides_accepts_all_appconfig_sections() -> None:
     """allowed_sections が AppConfig のネスト BaseModel セクションから動的に導出される。
 
