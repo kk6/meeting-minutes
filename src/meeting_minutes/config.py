@@ -183,6 +183,7 @@ def load_config(path: Path | None) -> AppConfig:
     （未設定時は `~/.config/meeting-minutes/config.toml`）を参照する。
     存在しなければ環境変数と既定値のみで構築する。
 
+    値の優先順位は env (`MEETING_MINUTES_*`) > TOML > 組み込み既定値。
     `path` の不在・読み込み失敗・パース失敗・バリデーション失敗時は対応する例外を送出する。
     """
     if path is None:
@@ -194,11 +195,43 @@ def load_config(path: Path | None) -> AppConfig:
     if not path.exists():
         raise FileNotFoundError(f"設定ファイルが見つかりません: {path}")
 
-    import tomllib
+    return _load_appconfig_with_toml(path)
 
-    with path.open("rb") as file:
-        data = tomllib.load(file)
-    return AppConfig.model_validate(data)
+
+def _load_appconfig_with_toml(path: Path) -> AppConfig:
+    """env > TOML > defaults の優先順で `AppConfig` を構築する。
+
+    `TomlConfigSettingsSource` を `env_settings` の下、`defaults` の上に挟み込み、
+    TOML 値の上に環境変数を載せる。`toml_file` はクラス属性として渡す必要が
+    あるため、呼び出しごとに `AppConfig` のサブクラスを動的生成する。
+    """
+    from pydantic_settings import PydanticBaseSettingsSource, TomlConfigSettingsSource
+
+    class _ConfigWithToml(AppConfig):
+        model_config = SettingsConfigDict(
+            env_prefix="MEETING_MINUTES_",
+            env_nested_delimiter="__",
+            toml_file=str(path),
+        )
+
+        @classmethod
+        def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+        ) -> tuple[PydanticBaseSettingsSource, ...]:
+            return (
+                init_settings,
+                env_settings,
+                TomlConfigSettingsSource(settings_cls),
+                dotenv_settings,
+                file_secret_settings,
+            )
+
+    return _ConfigWithToml()
 
 
 def appconfig_section_names() -> set[str]:

@@ -121,7 +121,7 @@ uv run meeting-minutes live --device-index 1
 | `--chunk-seconds` | `8` | 音声取得チャンクの秒数 |
 | `--language` | `ja` | Whisperに渡す言語 |
 | `--whisper-model` | `small` | faster-whisperのモデル名 |
-| `--output-dir` | `output` | セッション出力先 |
+| `--output-dir` | 設定ファイルまたは XDG 既定 (`~/.local/share/meeting-minutes/output`) | セッション出力先 |
 | `--ollama-model` | `gemma4` | 自動ドラフト生成で使うOllamaモデル |
 | `--config` | なし | TOML設定ファイル |
 | `--no-save` | `false` | transcriptを保存しない |
@@ -131,10 +131,10 @@ uv run meeting-minutes live --device-index 1
 | `--abort-on-overflow` | 設定ファイルまたは `true` | 音声取り逃がし時に停止 |
 | `--draft-interval-minutes` | `0` | 指定分ごとにドラフト生成。`0`なら無効 |
 
-出力先の例:
+出力先の例（`<base_dir>` は `output.base_dir` の解決結果。XDG 既定なら `~/.local/share/meeting-minutes/output`）:
 
 ```text
-output/
+<base_dir>/
   2026-04-28_193822_live_meeting/
     transcript_live.md
     audio_live.wav

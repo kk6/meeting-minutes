@@ -42,13 +42,19 @@ meeting-minutes --help
 | 設定ファイル | `~/.config/meeting-minutes/config.toml` | `$XDG_CONFIG_HOME` または `--config` |
 | 出力先 (`output.base_dir`) | `~/.local/share/meeting-minutes/output/` | `$XDG_DATA_HOME` または config の `[output] base_dir` |
 
-グローバルインストール時の最小構成例:
+グローバルインストール時は、上書きしたいフィールドだけを書いた最小構成を置きます。
 
 ```bash
 mkdir -p ~/.config/meeting-minutes
-cp config.example.toml ~/.config/meeting-minutes/config.toml
-# 必要に応じて [output] base_dir などを編集
+cat > ~/.config/meeting-minutes/config.toml <<'EOF'
+[audio]
+device = "BlackHole 2ch"
+EOF
 ```
+
+利用可能な全フィールドのリファレンスは [config.example.toml](./config.example.toml) を参照してください。
+（`config.example.toml` を丸ごとコピーすると `[output] base_dir = "output"`
+を引き継いで XDG 既定が無効化される点に注意。）
 
 ## Commands
 

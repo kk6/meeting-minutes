@@ -158,6 +158,35 @@ def test_output_base_dir_defaults_to_xdg_data_home(
     assert config.output.base_dir == tmp_path / "data" / "meeting-minutes" / "output"
 
 
+def test_load_config_env_overrides_toml_when_both_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """env 値が TOML 値より優先されることを担保する。
+
+    XDG auto-discovery で TOML を拾った場合に env 経由の上書き経路が壊れないことを検証する
+    （README/docs で案内している `MEETING_MINUTES_OUTPUT__BASE_DIR` などが効くこと）。
+    """
+    config_file = tmp_path / "config.toml"
+    config_file.write_text('[audio]\ndevice = "FromToml"\n', encoding="utf-8")
+    monkeypatch.setenv("MEETING_MINUTES_AUDIO__DEVICE", "FromEnv")
+
+    config = load_config(config_file)
+
+    assert config.audio.device == "FromEnv"
+
+
+def test_load_config_uses_toml_value_when_env_absent(
+    tmp_path: Path,
+) -> None:
+    """env が未設定なら TOML 値が組み込み既定値より優先される。"""
+    config_file = tmp_path / "config.toml"
+    config_file.write_text('[audio]\ndevice = "FromToml"\n', encoding="utf-8")
+
+    config = load_config(config_file)
+
+    assert config.audio.device == "FromToml"
+
+
 def test_apply_overrides_accepts_all_appconfig_sections() -> None:
     """allowed_sections が AppConfig のネスト BaseModel セクションから動的に導出される。
 
