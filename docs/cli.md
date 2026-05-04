@@ -220,7 +220,6 @@ uv run meeting-minutes daemon start
 
 | オプション | 既定値 | 説明 |
 | --- | --- | --- |
-| `--host` | `127.0.0.1` | daemon のホスト |
 | `--port` | `8765` | daemon のポート |
 | `--draft-interval-minutes` | `0` | 指定分ごとにドラフト生成。`0` なら無効 |
 
@@ -234,7 +233,6 @@ uv run meeting-minutes daemon stop
 
 | オプション | 既定値 | 説明 |
 | --- | --- | --- |
-| `--host` | `127.0.0.1` | daemon のホスト |
 | `--port` | `8765` | daemon のポート |
 
 ### daemon status
@@ -247,7 +245,6 @@ uv run meeting-minutes daemon status
 
 | オプション | 既定値 | 説明 |
 | --- | --- | --- |
-| `--host` | `127.0.0.1` | daemon のホスト |
 | `--port` | `8765` | daemon のポート |
 
 ## clean

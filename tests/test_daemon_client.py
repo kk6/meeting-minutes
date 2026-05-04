@@ -201,24 +201,23 @@ class TestStartCommand:
         assert result.exit_code == 0
         assert "running" in result.output
 
-    def test_exits_with_error_when_daemon_not_running(self, runner: CliRunner) -> None:
+    def test_exits_with_error_when_daemon_unreachable(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.start.side_effect = httpx.ConnectError("connection refused")
         with _patch_daemon_client(mock_client):
             result = runner.invoke(app, ["daemon", "start"])
 
         assert result.exit_code == 1
-        assert "127.0.0.1:8765" in result.output
+        assert "接続できません" in result.output
 
     def test_exits_with_error_on_timeout(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
-        mock_client.start.side_effect = httpx.ConnectTimeout("timed out")
+        mock_client.start.side_effect = httpx.ReadTimeout("timed out")
         with _patch_daemon_client(mock_client):
             result = runner.invoke(app, ["daemon", "start"])
 
         assert result.exit_code == 1
-        assert "応答しませんでした" in result.output
-        assert "daemon serve" not in result.output
+        assert "接続できません" in result.output
 
     def test_exits_with_error_on_409(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
@@ -233,124 +232,6 @@ class TestStartCommand:
 
         assert result.exit_code == 1
         assert "already running" in result.output
-
-    def test_exits_with_error_on_read_timeout(self, runner: CliRunner) -> None:
-        mock_client = MagicMock()
-        mock_client.start.side_effect = httpx.ReadTimeout("timed out")
-        with _patch_daemon_client(mock_client):
-            result = runner.invoke(app, ["daemon", "start"])
-
-        assert result.exit_code == 1
-        assert "応答しませんでした" in result.output
-        assert "daemon serve" not in result.output
-
-    def test_localhost_treated_as_local_endpoint(self, runner: CliRunner) -> None:
-        mock_client = MagicMock()
-        mock_client.start.side_effect = httpx.ConnectError("connection refused")
-        with _patch_daemon_client(mock_client):
-            result = runner.invoke(app, ["daemon", "start", "--host", "localhost"])
-
-        assert result.exit_code == 1
-        assert "daemon serve" in result.output
-        assert "ポートフォワーディング" not in result.output
-
-    def test_localhost_uppercase_treated_as_local_endpoint(self, runner: CliRunner) -> None:
-        mock_client = MagicMock()
-        mock_client.start.side_effect = httpx.ConnectError("connection refused")
-        with _patch_daemon_client(mock_client):
-            result = runner.invoke(app, ["daemon", "start", "--host", "LOCALHOST"])
-
-        assert result.exit_code == 1
-        assert "daemon serve" in result.output
-        assert "ポートフォワーディング" not in result.output
-
-    def test_collapses_traceback_in_5xx_detail(self, runner: CliRunner) -> None:
-        # daemon は startup 失敗時に traceback.format_exc() を detail に入れるため、
-        # CLI 側で安全なメッセージへ畳むことを検証する。
-        traceback_detail = (
-            "Traceback (most recent call last):\n"
-            '  File "/x/y.py", line 1, in <module>\n'
-            "    boom()\n"
-            "RuntimeError: kaboom"
-        )
-        mock_client = MagicMock()
-        http_err = httpx.HTTPStatusError(
-            "500",
-            request=MagicMock(),
-            response=MagicMock(json=lambda: {"detail": traceback_detail}),
-        )
-        mock_client.start.side_effect = http_err
-        with _patch_daemon_client(mock_client):
-            result = runner.invoke(app, ["daemon", "start"])
-
-        assert result.exit_code == 1
-        assert "Traceback" not in result.output
-        assert "daemon ログ" in result.output
-
-    def test_non_loopback_host_suggests_port_forwarding(self, runner: CliRunner) -> None:
-        mock_client = MagicMock()
-        mock_client.start.side_effect = httpx.ConnectError("connection refused")
-        with _patch_daemon_client(mock_client):
-            result = runner.invoke(app, ["daemon", "start", "--host", "192.168.1.5"])
-
-        assert result.exit_code == 1
-        assert "ポートフォワーディング" in result.output
-        assert "daemon serve を起動" not in result.output
-
-    def test_bracketed_ipv6_treated_as_remote(self, runner: CliRunner) -> None:
-        # [IPv6] 形式は SSH ポートフォワード等で使われるため許容。daemon serve
-        # 自体は IPv4 にしか bind しないので「ポートフォワーディング」案内で正しい。
-        mock_client = MagicMock()
-        mock_client.start.side_effect = httpx.ConnectError("connection refused")
-        with _patch_daemon_client(mock_client):
-            result = runner.invoke(app, ["daemon", "start", "--host", "[::1]"])
-
-        assert result.exit_code == 1
-        assert "ポートフォワーディング" in result.output
-
-    def test_rejects_host_with_scheme(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["daemon", "start", "--host", "http://127.0.0.1"])
-
-        assert result.exit_code != 0
-        # Rich パネルでメッセージが折り返されるため、安定する後半部分で判定する
-        assert "スキーマ" in result.output
-
-    def test_rejects_host_with_path(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["daemon", "start", "--host", "127.0.0.1/api"])
-
-        assert result.exit_code != 0
-        assert "スキーマ" in result.output
-
-    def test_rejects_host_with_embedded_port(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["daemon", "start", "--host", "127.0.0.1:9000"])
-
-        assert result.exit_code != 0
-        assert "ホスト名" in result.output
-
-    def test_rejects_raw_ipv6_literal(self, runner: CliRunner) -> None:
-        # 角括弧なしの IPv6 リテラルは host:port と区別がつかないため拒否
-        result = runner.invoke(app, ["daemon", "start", "--host", "::1"])
-
-        assert result.exit_code != 0
-        assert "ホスト名" in result.output
-
-    def test_rejects_invalid_bracketed_form(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["daemon", "start", "--host", "[not-ipv6]"])
-
-        assert result.exit_code != 0
-        assert "IPv6" in result.output
-
-    def test_rejects_empty_host(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["daemon", "start", "--host", ""])
-
-        assert result.exit_code != 0
-        assert "空" in result.output
-
-    def test_rejects_whitespace_only_host(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["daemon", "start", "--host", "   "])
-
-        assert result.exit_code != 0
-        assert "空" in result.output
 
     def test_rejects_negative_draft_interval(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["daemon", "start", "--draft-interval-minutes", "-1"])
@@ -378,14 +259,14 @@ class TestStopCommand:
         assert result.exit_code == 0
         assert "stopping" in result.output
 
-    def test_exits_with_error_when_daemon_not_running(self, runner: CliRunner) -> None:
+    def test_exits_with_error_when_daemon_unreachable(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.stop.side_effect = httpx.ConnectError("connection refused")
         with _patch_daemon_client(mock_client):
             result = runner.invoke(app, ["daemon", "stop"])
 
         assert result.exit_code == 1
-        assert "127.0.0.1:8765" in result.output
+        assert "接続できません" in result.output
 
     def test_exits_with_error_on_409(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
@@ -400,16 +281,6 @@ class TestStopCommand:
 
         assert result.exit_code == 1
         assert "no session running" in result.output
-
-    def test_exits_with_error_on_read_timeout(self, runner: CliRunner) -> None:
-        mock_client = MagicMock()
-        mock_client.stop.side_effect = httpx.ReadTimeout("timed out")
-        with _patch_daemon_client(mock_client):
-            result = runner.invoke(app, ["daemon", "stop"])
-
-        assert result.exit_code == 1
-        assert "応答しませんでした" in result.output
-        assert "daemon serve" not in result.output
 
 
 class TestStatusCommand:
@@ -432,16 +303,6 @@ class TestStatusCommand:
         assert "running" in result.output
         assert "30s" in result.output
 
-    def test_exits_with_error_on_read_timeout(self, runner: CliRunner) -> None:
-        mock_client = MagicMock()
-        mock_client.current.side_effect = httpx.ReadTimeout("timed out")
-        with _patch_daemon_client(mock_client):
-            result = runner.invoke(app, ["daemon", "status"])
-
-        assert result.exit_code == 1
-        assert "応答しませんでした" in result.output
-        assert "daemon serve" not in result.output
-
     def test_prints_error_lines_when_session_failed(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.current.return_value = _failed_status()
@@ -452,11 +313,11 @@ class TestStatusCommand:
         assert "failed" in result.output
         assert "audio device not found" in result.output
 
-    def test_exits_with_error_when_daemon_not_running(self, runner: CliRunner) -> None:
+    def test_exits_with_error_when_daemon_unreachable(self, runner: CliRunner) -> None:
         mock_client = MagicMock()
         mock_client.current.side_effect = httpx.ConnectError("connection refused")
         with _patch_daemon_client(mock_client):
             result = runner.invoke(app, ["daemon", "status"])
 
         assert result.exit_code == 1
-        assert "127.0.0.1:8765" in result.output
+        assert "接続できません" in result.output

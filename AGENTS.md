@@ -2,6 +2,15 @@
 
 Guidance for coding agents working in this repository.
 
+## Project Stance (read this first)
+
+This is a **personal tool** the author runs locally on their own Mac. The repo is public but is not meant to be a general-purpose product:
+
+- The author is the only intended user. There is no support, no roadmap, no release process.
+- External contributions are not solicited. Users who want changes should fork and edit freely.
+- **Avoid over-engineering for hypothetical other users.** Things like multi-user support, remote connectivity, IPv6, exhaustive input validation, defensive guards against contrived inputs, and elaborate error UX are explicitly out of scope unless the author needs them.
+- Prefer the simplest implementation that works for the author's own usage. If a code review (human or AI) suggests adding generality "for users", push back and only adopt the change if it benefits the author's actual workflow or fixes a real defect.
+
 ## Project Overview
 
 `meeting-minutes` is a local macOS CLI for realtime transcription and meeting-minutes generation.

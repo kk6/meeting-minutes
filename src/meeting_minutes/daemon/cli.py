@@ -1,6 +1,5 @@
 """daemon サブコマンド群の定義。"""
 
-import ipaddress
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
@@ -20,44 +19,10 @@ daemon_app = typer.Typer(no_args_is_help=True, help="ローカル制御サーバ
 _console = Console()
 
 
-def _validate_host(value: str) -> str:
-    """--host に渡されたホスト指定を検証・正規化する。
-
-    受け付ける形式:
-    - ホスト名（例: `example.com`）
-    - IPv4 アドレス（例: `127.0.0.1`）
-    - 角括弧付き IPv6 リテラル（例: `[::1]`）— SSH ポートフォワード等で使用
-
-    `localhost` は OS によって ::1 へ先に解決される場合があり、daemon serve
-    が IPv4 ループバックにのみ bind することで接続失敗しうるため、内部的に
-    127.0.0.1 へ正規化する。
-    """
-    value = value.strip()
-    if not value:
-        raise typer.BadParameter("--host が空です")
-    if "://" in value or "/" in value:
-        raise typer.BadParameter("--host にスキーマや path は含められません")
-    if value.startswith("[") and value.endswith("]"):
-        inner = value[1:-1]
-        try:
-            ipaddress.IPv6Address(inner)
-        except ValueError as exc:
-            raise typer.BadParameter(
-                f"[...] 形式の中身は有効な IPv6 アドレスにしてください: {inner!r}"
-            ) from exc
-        return value
-    if any(c in value for c in ":[]"):
-        raise typer.BadParameter(
-            "--host はホスト名 / IPv4 アドレス / [IPv6] 形式のいずれかにしてください "
-            "（http:// などのスキーマ、:port は不可）"
-        )
-    return "127.0.0.1" if value.lower() == "localhost" else value
-
-
-def _make_daemon_client(host: str, port: int) -> "DaemonClientType":
+def _make_daemon_client(port: int) -> "DaemonClientType":
     from meeting_minutes.daemon.client import DaemonClient
 
-    return DaemonClient(f"http://{host}:{port}")
+    return DaemonClient(f"http://127.0.0.1:{port}")
 
 
 def _print_session_status(status: "SessionStatusType") -> None:
@@ -80,60 +45,28 @@ def _print_session_status(status: "SessionStatusType") -> None:
         _console.print(f"[red]Error:[/red] {err}")
 
 
-_LOCAL_HOSTS = {"127.0.0.1"}
-
-
-def _daemon_connect_error(host: str, port: int) -> None:
-    if host not in _LOCAL_HOSTS:
-        # serve は 127.0.0.1 にのみバインドするためリモートには直接届かない
-        _console.print(
-            f"[red]http://{host}:{port} に接続できません。"
-            " daemon serve はループバックにのみバインドするため、"
-            " リモートホストへの接続にはポートフォワーディングが必要です。[/red]"
-        )
-    else:
-        port_opt = f" --port {port}" if port != 8765 else ""
-        _console.print(
-            f"[red]http://{host}:{port} に接続できません。"
-            f" 先に meeting-minutes daemon serve{port_opt} を起動してください。[/red]"
-        )
-
-
-def _daemon_timeout_error(host: str, port: int) -> None:
-    _console.print(
-        f"[red]http://{host}:{port} が応答しませんでした。"
-        " デーモンが起動中の場合はしばらく待ってから再試行してください。[/red]"
-    )
-
-
 def _http_error_detail(exc: "httpx.HTTPStatusError") -> str:
     try:
-        detail = str(exc.response.json().get("detail", exc))
+        return str(exc.response.json().get("detail", exc))
     except (ValueError, AttributeError):
         return str(exc)
-    # daemon は startup 失敗時に traceback.format_exc() を detail に詰めるため、
-    # 端末を埋めるトレースバックを表示せず安全なメッセージに畳む（詳細はログ参照）。
-    if "\n" in detail or detail.startswith("Traceback"):
-        return "daemon でエラーが発生しました（詳細は daemon ログを参照してください）"
-    return detail
 
 
 def _invoke_daemon(
-    host: str,
     port: int,
     action: Callable[["DaemonClientType"], "SessionStatusType"],
 ) -> "SessionStatusType":
-    """daemon API 呼び出しの共通例外処理。CLI 層のエラー表示と Exit を一元化する。"""
+    """daemon API 呼び出しの共通例外処理。"""
     import httpx
 
-    client = _make_daemon_client(host, port)
+    client = _make_daemon_client(port)
     try:
         return action(client)
-    except httpx.ConnectError:
-        _daemon_connect_error(host, port)
-        raise typer.Exit(code=1) from None
-    except httpx.TimeoutException:
-        _daemon_timeout_error(host, port)
+    except (httpx.ConnectError, httpx.TimeoutException):
+        _console.print(
+            f"[red]http://127.0.0.1:{port} の daemon に接続できません。"
+            " 先に meeting-minutes daemon serve を起動してください。[/red]"
+        )
         raise typer.Exit(code=1) from None
     except httpx.HTTPStatusError as exc:
         _console.print(f"[red]{_http_error_detail(exc)}[/red]")
@@ -158,7 +91,6 @@ def daemon_serve(
 
 @daemon_app.command("start")
 def daemon_start(
-    host: Annotated[str, typer.Option("--host", callback=_validate_host)] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
     draft_interval_minutes: Annotated[
         int, typer.Option("--draft-interval-minutes", help="0なら自動ドラフト生成なし", min=0)
@@ -168,22 +100,20 @@ def daemon_start(
     from meeting_minutes.daemon.schema import StartRequest
 
     req = StartRequest(draft_interval_minutes=draft_interval_minutes)
-    _print_session_status(_invoke_daemon(host, port, lambda c: c.start(req)))
+    _print_session_status(_invoke_daemon(port, lambda c: c.start(req)))
 
 
 @daemon_app.command("stop")
 def daemon_stop(
-    host: Annotated[str, typer.Option("--host", callback=_validate_host)] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
 ) -> None:
     """録音セッションを停止します。"""
-    _print_session_status(_invoke_daemon(host, port, lambda c: c.stop()))
+    _print_session_status(_invoke_daemon(port, lambda c: c.stop()))
 
 
 @daemon_app.command("status")
 def daemon_status(
-    host: Annotated[str, typer.Option("--host", callback=_validate_host)] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
 ) -> None:
     """現在のセッション状態を表示します。"""
-    _print_session_status(_invoke_daemon(host, port, lambda c: c.current()))
+    _print_session_status(_invoke_daemon(port, lambda c: c.current()))
