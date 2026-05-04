@@ -47,6 +47,8 @@ timeout_seconds = 600
 think = false
 
 [output]
+# 未指定時は $XDG_DATA_HOME/meeting-minutes/output/ (~/.local/share/meeting-minutes/output/) に保存される。
+# リポジトリ相対の "output/" に出したい場合は明示的に指定する。
 base_dir = "output"
 save_transcript = true
 save_audio = true

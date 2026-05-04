@@ -4,8 +4,18 @@
 
 ## 前提
 
+リポジトリ内で開発しながら使う場合:
+
 ```bash
 uv sync
+# 以降は `uv run meeting-minutes ...` で呼び出す
+```
+
+任意ディレクトリ・Raycast 等から呼び出したい場合はグローバルインストール:
+
+```bash
+uv tool install .
+# 以降は `meeting-minutes ...` で直接呼び出せる
 ```
 
 必要なもの:
@@ -14,6 +24,17 @@ uv sync
 - Ollama
 - Ollama上の議事録生成モデル。デフォルトは `gemma4`
 - 会議音声を取り込む場合はBlackHoleなどの仮想オーディオデバイス
+
+### 設定ファイル auto-discovery
+
+`--config` を渡さない場合、`$XDG_CONFIG_HOME/meeting-minutes/config.toml`
+（未設定時は `~/.config/meeting-minutes/config.toml`）を自動で読み込みます。
+存在しなければ環境変数と組み込み既定値だけで動作します。
+
+`output.base_dir` の既定値は `$XDG_DATA_HOME/meeting-minutes/output/`
+（未設定時は `~/.local/share/meeting-minutes/output/`）です。
+従来どおりリポジトリ相対の `output/` に出力したい場合は、設定ファイルや
+`MEETING_MINUTES_OUTPUT__BASE_DIR` 環境変数で明示的に上書きしてください。
 
 ## 基本フロー
 

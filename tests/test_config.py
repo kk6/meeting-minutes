@@ -125,6 +125,39 @@ def test_cleaning_config_rejects_unknown_fields() -> None:
         CleaningConfig(**{"chunk_size": 4000, "chunk_overlap": 0})
 
 
+def test_load_config_uses_xdg_default_when_path_is_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_dir = tmp_path / "config" / "meeting-minutes"
+    config_dir.mkdir(parents=True)
+    (config_dir / "config.toml").write_text('[audio]\ndevice = "FromXdgConfig"\n', encoding="utf-8")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+
+    config = load_config(None)
+
+    assert config.audio.device == "FromXdgConfig"
+
+
+def test_load_config_returns_defaults_when_no_xdg_config_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "nonexistent"))
+
+    config = load_config(None)
+
+    assert config.audio.device is None
+
+
+def test_output_base_dir_defaults_to_xdg_data_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+
+    config = load_config(None)
+
+    assert config.output.base_dir == tmp_path / "data" / "meeting-minutes" / "output"
+
+
 def test_apply_overrides_accepts_all_appconfig_sections() -> None:
     """allowed_sections が AppConfig のネスト BaseModel セクションから動的に導出される。
 

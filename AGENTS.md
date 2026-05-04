@@ -27,7 +27,7 @@ This is a **personal tool** the author runs locally on their own Mac. The repo i
 - `tests/`: pytest tests
 - `docs/`: user-facing documentation
 - `config.example.toml`: example runtime configuration
-- `output/`: generated runtime artifacts; do not treat as source
+- `output/`: generated runtime artifacts when `[output] base_dir = "output"` is set in config (e.g. `config.example.toml`); do not treat as source. Default for global install is `$XDG_DATA_HOME/meeting-minutes/output/`
 
 Important modules:
 

@@ -1,10 +1,33 @@
 """アプリ全体の設定を pydantic モデルで定義し、TOML / 環境変数 / CLI 上書きから組み立てる。"""
 
+import os
 from pathlib import Path
 from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _xdg_config_home() -> Path:
+    """`$XDG_CONFIG_HOME` を返す。未設定なら XDG 仕様の既定値 `~/.config` を返す。"""
+    value = os.environ.get("XDG_CONFIG_HOME")
+    return Path(value) if value else Path.home() / ".config"
+
+
+def _xdg_data_home() -> Path:
+    """`$XDG_DATA_HOME` を返す。未設定なら XDG 仕様の既定値 `~/.local/share` を返す。"""
+    value = os.environ.get("XDG_DATA_HOME")
+    return Path(value) if value else Path.home() / ".local" / "share"
+
+
+def default_config_path() -> Path:
+    """`load_config(None)` が auto-discovery で参照する設定ファイルのパスを返す。"""
+    return _xdg_config_home() / "meeting-minutes" / "config.toml"
+
+
+def _default_output_dir() -> Path:
+    """セッション成果物の既定出力先を返す（XDG_DATA_HOME ベース）。"""
+    return _xdg_data_home() / "meeting-minutes" / "output"
 
 
 class AudioConfig(BaseModel):
@@ -94,7 +117,7 @@ class SummarizationConfig(BaseModel):
 class OutputConfig(BaseModel):
     """成果物（文字起こし、音声）の出力ディレクトリと保存可否の設定。"""
 
-    base_dir: Path = Path("output")
+    base_dir: Path = Field(default_factory=_default_output_dir)
     save_transcript: bool = True
     save_audio: bool = True
 
@@ -154,12 +177,20 @@ class AppConfig(BaseSettings):
 
 
 def load_config(path: Path | None) -> AppConfig:
-    """TOML から `AppConfig` を構築する。`path` が None なら環境変数と既定値のみで構築。
+    """TOML から `AppConfig` を構築する。
+
+    `path` が None の場合、まず `$XDG_CONFIG_HOME/meeting-minutes/config.toml`
+    （未設定時は `~/.config/meeting-minutes/config.toml`）を参照する。
+    存在しなければ環境変数と既定値のみで構築する。
 
     `path` の不在・読み込み失敗・パース失敗・バリデーション失敗時は対応する例外を送出する。
     """
     if path is None:
-        return AppConfig()
+        candidate = default_config_path()
+        if candidate.exists():
+            path = candidate
+        else:
+            return AppConfig()
     if not path.exists():
         raise FileNotFoundError(f"設定ファイルが見つかりません: {path}")
 
