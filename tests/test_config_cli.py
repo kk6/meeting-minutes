@@ -175,6 +175,14 @@ class TestConfigShow:
         result = runner.invoke(app, ["config", "show", "--format", "yaml"])
         assert result.exit_code != 0
 
+    def test_errors_when_explicit_config_missing(self, runner: CliRunner, tmp_path: Path) -> None:
+        """`config edit` と整合させ、--config 明示指定で存在しないパスは
+        traceback ではなく CLI エラーで弾く。"""
+        result = runner.invoke(app, ["config", "show", "--config", str(tmp_path / "missing.toml")])
+
+        assert result.exit_code == 1
+        assert "見つかりません" in result.stdout
+
 
 class TestConfigEdit:
     def test_invokes_editor_on_resolved_config_path(
@@ -257,3 +265,21 @@ class TestConfigEdit:
 
         assert result.exit_code == 1
         assert "見つかりません" in result.stdout
+
+    def test_errors_when_default_path_is_directory(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """既定パスに dir があるときは `config init` を案内せず、実際の問題を出す。
+
+        `config init` も同じ理由で失敗するため、案内を出すと dead-end になる。
+        """
+        config_dir = tmp_path / "config" / "meeting-minutes"
+        config_dir.mkdir(parents=True)
+        (config_dir / "config.toml").mkdir()
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+
+        result = runner.invoke(app, ["config", "edit"])
+
+        assert result.exit_code == 1
+        assert "通常ファイルではありません" in result.stdout
+        assert "config init" not in result.stdout

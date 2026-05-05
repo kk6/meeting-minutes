@@ -105,6 +105,12 @@ def config_show(
     """解決後の AppConfig 全体を出力します。"""
     if output_format not in ("toml", "json"):
         raise typer.BadParameter("--format は 'toml' または 'json' を指定してください")
+    # `config edit` と整合させ、`--config <missing>` で raw FileNotFoundError traceback が
+    # 出ないよう、明示指定時のみ事前チェックする。auto-discovery 時は load_config 側で
+    # 既定値にフォールバックするためチェック不要。
+    if config is not None and not config.is_file():
+        _console.print(f"[red]設定ファイルが見つかりません: {config}[/red]")
+        raise typer.Exit(code=1)
     app_config = load_config(config)
     if output_format == "json":
         data = _appconfig_to_dict(app_config, drop_none=False)
@@ -136,8 +142,16 @@ def config_edit(
         return
     source = resolve_config_source(None)
     if source.kind == "defaults":
+        # 既定パスに dir 等の通常ファイルでないエントリがある場合、`config init` も
+        # 同じ理由で失敗するため案内せず、実際の問題をそのまま表示する。
+        default_path = default_config_path()
+        if default_path.exists():
+            _console.print(
+                f"[red]設定ファイルパスが通常ファイルではありません: {default_path}[/red]"
+            )
+            raise typer.Exit(code=1)
         _console.print(
-            f"[red]設定ファイルが存在しません: {default_config_path()}[/red]\n"
+            f"[red]設定ファイルが存在しません: {default_path}[/red]\n"
             "[yellow]先に `meeting-minutes config init` で作成してください。[/yellow]"
         )
         raise typer.Exit(code=1)
