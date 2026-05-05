@@ -26,17 +26,25 @@ if [ ! -d "${MEETING_MINUTES_REPO}" ]; then
     exit 1
 fi
 
-# 二重起動防止: PID ファイルで自分が起動した daemon のみを確認する
+# 二重起動防止: PID ファイルを優先確認し、なければポートも確認する
 if [ -f "${PID_FILE}" ]; then
     existing_pid=$(cat "${PID_FILE}")
-    if kill -0 "${existing_pid}" 2>/dev/null; then
+    if kill -0 "${existing_pid}" 2>/dev/null && \
+       ps -p "${existing_pid}" -o args= 2>/dev/null | grep -q "meeting-minutes"; then
         echo "daemon は既に起動しています (PID=${existing_pid})。" >&2
         echo "停止するには serve-stop.sh を実行してください。" >&2
         exit 1
     else
-        # プロセスが存在しない古い PID ファイルを削除して続行
+        # プロセスが存在しない、または別プロセスが PID を再利用している古いファイルを削除
         rm -f "${PID_FILE}"
     fi
+fi
+
+# PID ファイルがない場合も、ポートで手動起動の daemon がないか確認する
+if lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo "ポート ${PORT} は既に使用中です。" >&2
+    echo "手動で起動した daemon serve がある場合はターミナルで Ctrl+C で停止してください。" >&2
+    exit 1
 fi
 
 mkdir -p "${LOG_DIR}"
