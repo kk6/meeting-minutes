@@ -24,14 +24,15 @@ config_app = typer.Typer(no_args_is_help=True, help="設定ファイルを管理
 _console = Console()
 
 
-def _appconfig_to_dict(config: AppConfig) -> dict[str, object]:
-    """`AppConfig` を JSON / TOML どちらにも流せるプリミティブな dict に落とす。
+def _appconfig_to_dict(config: AppConfig, *, drop_none: bool) -> dict[str, object]:
+    """`AppConfig` をプリミティブな dict に落とす。
 
-    `mode="json"` で `Path` / `datetime` を文字列化する。`exclude_none=True` で
-    None フィールドを落とすのは TOML が null を表現できないため（dotted key を
-    `None` のまま `tomli_w.dumps` に渡すと `TypeError` になる）。
+    `mode="json"` で `Path` / `datetime` を文字列化する。`drop_none=True` の場合は
+    None フィールドを落とす（TOML は null を表現できず、`tomli_w.dumps` が
+    `TypeError` を出すため必須）。JSON 出力では未設定フィールドの存在自体が情報なので
+    `drop_none=False` で `null` のまま残す。
     """
-    return config.model_dump(mode="json", exclude_none=True)
+    return config.model_dump(mode="json", exclude_none=drop_none)
 
 
 @config_app.command("path")
@@ -99,21 +100,34 @@ def config_show(
     if output_format not in ("toml", "json"):
         raise typer.BadParameter("--format は 'toml' または 'json' を指定してください")
     app_config = load_config(config)
-    data = _appconfig_to_dict(app_config)
     if output_format == "json":
+        data = _appconfig_to_dict(app_config, drop_none=False)
         _console.print_json(json.dumps(data, ensure_ascii=False))
     else:
+        data = _appconfig_to_dict(app_config, drop_none=True)
         # `[section]` を Rich のマークアップとして解釈されないよう markup=False にする。
         _console.print(tomli_w.dumps(data), end="", soft_wrap=True, highlight=False, markup=False)
 
 
 @config_app.command("edit")
-def config_edit() -> None:
+def config_edit(
+    config: Annotated[
+        Path | None,
+        typer.Option("--config", help="編集対象の TOML 設定ファイル（XDG 既定以外を編集する場合）"),
+    ] = None,
+) -> None:
     """`$EDITOR` で config を開きます。未設定なら `open(1)` を試みます。
 
-    対象は auto-discovery で解決される既定パスです。ファイルが未作成の場合は
-    先に `meeting-minutes config init` を案内します。
+    `--config` 未指定時は auto-discovery で解決される既定パスを編集対象とし、
+    ファイル未作成の場合は `meeting-minutes config init` を案内します。
+    `--config` 明示時はそのファイルが存在すれば直接開きます。
     """
+    if config is not None:
+        if not config.is_file():
+            _console.print(f"[red]設定ファイルが見つかりません: {config}[/red]")
+            raise typer.Exit(code=1)
+        _open_in_editor(config)
+        return
     source = resolve_config_source(None)
     if source.kind == "defaults":
         _console.print(

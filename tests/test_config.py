@@ -350,6 +350,21 @@ class TestResolveConfigSource:
         assert source.kind == "defaults"
         assert source.path is None
 
+    def test_treats_directory_at_default_path_as_defaults(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """既定パスに同名ディレクトリがあっても auto-discovery しない（is_file 判定）。"""
+        config_dir = tmp_path / "config" / "meeting-minutes"
+        config_dir.mkdir(parents=True)
+        # config.toml という名前のディレクトリを置いてみる
+        (config_dir / "config.toml").mkdir()
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+
+        source = resolve_config_source(None)
+
+        assert source.kind == "defaults"
+        assert source.path is None
+
 
 def test_read_template_config_text_returns_loadable_toml() -> None:
     """`config init` で書き出す内容がそのまま `load_config` で読み込めることを保証する。"""

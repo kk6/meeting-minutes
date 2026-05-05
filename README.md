@@ -67,7 +67,8 @@ EOF
 ## Commands
 
 グローバルインストール済みなら `uv run` を外して `meeting-minutes ...` で直接呼べます。
-以下の `<base_dir>` は `output.base_dir` の解決結果です（XDG 既定なら `~/.local/share/meeting-minutes/output`、雛形を `--config src/meeting_minutes/config/templates/config.example.toml` で渡したリポジトリ内ワークフローなら `<repo>/output`）。
+以下の `<base_dir>` は `output.base_dir` の解決結果です（XDG 既定なら `~/.local/share/meeting-minutes/output`）。
+TOML 中の相対パスは設定ファイル自身のディレクトリ基準で anchor されるため、雛形を `--config` で直接渡すとパッケージ内 `src/meeting_minutes/config/templates/output/` に書き出されます。リポジトリ直下に出したい場合は `meeting-minutes config show > config.toml` などで一度コピーしてから `--config ./config.toml` を渡してください。
 
 ```bash
 uv run meeting-minutes check

@@ -212,13 +212,14 @@ def resolve_config_source(path: Path | None) -> ConfigSource:
     """`load_config(path)` が参照する設定ソースを返す。読み込みは行わない。
 
     - `path` が指定された場合: `kind="explicit"`、`path` をそのまま返す（存在チェックなし）。
-    - `path` が None で XDG 既定パスに config.toml がある場合: `kind="auto_discovered"`。
+    - `path` が None で XDG 既定パスに config.toml が「ファイルとして」ある場合:
+      `kind="auto_discovered"`。同名のディレクトリは auto-discovery 対象から除外する。
     - 上記いずれでもない場合: `kind="defaults"`、`path=None`。
     """
     if path is not None:
         return ConfigSource(kind="explicit", path=path)
     candidate = default_config_path()
-    if candidate.exists():
+    if candidate.is_file():
         return ConfigSource(kind="auto_discovered", path=candidate)
     return ConfigSource(kind="defaults", path=None)
 
@@ -246,7 +247,8 @@ def load_config(path: Path | None) -> AppConfig:
     """
     if path is None:
         candidate = default_config_path()
-        if candidate.exists():
+        # ディレクトリ等の同名エントリで auto-discovery がヒットしないよう is_file() を使う。
+        if candidate.is_file():
             path = candidate
         else:
             return AppConfig()

@@ -39,10 +39,10 @@ uv tool install .
 明示的に上書きする方法:
 
 - 設定ファイルで指定: TOML 中の相対パスは設定ファイル自身のディレクトリ基準で解決されます。
-  例えば雛形 `src/meeting_minutes/config/templates/config.example.toml` を `--config` で渡すと、
-  `base_dir = "output"` がそのディレクトリ基準で解決されます（リポジトリ内では
-  `src/meeting_minutes/config/templates/output/` になるので、通常は `meeting-minutes config init`
-  で `~/.config/meeting-minutes/config.toml` にコピーしてから編集します）。
+  例えば雛形をそのまま `--config` で渡すと `base_dir = "output"` が雛形のあるパッケージ内
+  ディレクトリ (`src/meeting_minutes/config/templates/output/`) に解決されてしまうため、
+  通常は `meeting-minutes config init` で `~/.config/meeting-minutes/config.toml` に
+  コピーしてから編集してください。
 - 環境変数で指定: `MEETING_MINUTES_OUTPUT__BASE_DIR=path` を設定すると env 経路で
   上書きされ、相対パスは cwd 基準（=従来どおり）として扱われます。設定ファイル
   と異なり anchor されません。
@@ -56,7 +56,7 @@ uv tool install .
 4. 必要に応じて `clean` で文字起こしを整形する
 5. `draft` または `finalize` で議事録Markdownを生成する
 
-以下の例の `<base_dir>` は `output.base_dir` の解決結果（XDG 既定なら `~/.local/share/meeting-minutes/output`、雛形 `src/meeting_minutes/config/templates/config.example.toml` を `--config` で渡せばそのディレクトリ基準）。
+以下の例の `<base_dir>` は `output.base_dir` の解決結果（XDG 既定なら `~/.local/share/meeting-minutes/output`、`config.toml` で `[output] base_dir` を指定した場合はそのパス）。
 本ドキュメント内の他コマンド例も同様に読み替えてください。
 
 ```bash
@@ -90,7 +90,7 @@ uv run meeting-minutes check
 設定ファイルを指定する場合:
 
 ```bash
-uv run meeting-minutes check --config ./src/meeting_minutes/config/templates/config.example.toml
+uv run meeting-minutes check --config ~/.config/meeting-minutes/config.toml
 ```
 
 ## devices
@@ -212,7 +212,7 @@ uv run meeting-minutes daemon serve --port 9000
 設定ファイルを指定する場合:
 
 ```bash
-uv run meeting-minutes daemon serve --config ./src/meeting_minutes/config/templates/config.example.toml
+uv run meeting-minutes daemon serve --config ~/.config/meeting-minutes/config.toml
 ```
 
 | オプション | 既定値 | 説明 |
@@ -363,7 +363,7 @@ uv run meeting-minutes draft <base_dir>/current/transcript_live.md --output <bas
 設定ファイルを使う場合:
 
 ```bash
-uv run meeting-minutes draft <base_dir>/current/transcript_live.md --config ./src/meeting_minutes/config/templates/config.example.toml
+uv run meeting-minutes draft <base_dir>/current/transcript_live.md --config ~/.config/meeting-minutes/config.toml
 ```
 
 ## finalize
@@ -450,7 +450,7 @@ meeting-minutes config edit
 TOML形式の設定ファイルを指定できます。
 
 ```bash
-uv run meeting-minutes live --config ./src/meeting_minutes/config/templates/config.example.toml
+uv run meeting-minutes live --config ~/.config/meeting-minutes/config.toml
 ```
 
 CLIオプションは設定ファイルより優先されます。
