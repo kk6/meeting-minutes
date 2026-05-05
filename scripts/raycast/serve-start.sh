@@ -60,5 +60,6 @@ for i in $(seq 1 60); do
     sleep 1
 done
 
-echo "daemon が ${i}秒以内に応答しませんでした。ログを確認してください: ${LOG_FILE}" >&2
+echo "daemon が ${i}秒以内に応答しませんでした (PID=${server_pid})。" >&2
+echo "プロセスは残っているため、ログ確認後に必要に応じて serve-stop.sh で停止してください: ${LOG_FILE}" >&2
 exit 1
