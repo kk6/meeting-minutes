@@ -80,6 +80,44 @@ class TestConfigInit:
         # 既存ファイルは保持される
         assert target.read_text(encoding="utf-8") == "# existing content\n"
 
+    def test_init_does_not_override_xdg_default_output_dir(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`config init` 直後は XDG 既定の output ディレクトリ
+        (`$XDG_DATA_HOME/meeting-minutes/output/`) が使われる必要がある。
+
+        テンプレートに `base_dir = "output"` が有効化された状態だと、相対パスが
+        config ファイルのディレクトリ基準で anchor されて XDG データ既定が
+        サイレントに無効化される。テンプレート側で base_dir をコメントアウト
+        しているため、`config init` した直後の `load_config` は XDG 既定の
+        `<XDG_DATA_HOME>/meeting-minutes/output/` を返す。
+        """
+        from meeting_minutes.config import load_config
+
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+
+        result = runner.invoke(app, ["config", "init"])
+        assert result.exit_code == 0
+
+        config = load_config(None)
+        assert config.output.base_dir == tmp_path / "data" / "meeting-minutes" / "output"
+
+    def test_errors_when_target_path_is_directory(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`config init --force` でも対象が dir なら write_text を呼ばずに弾く。"""
+        config_dir = tmp_path / "config" / "meeting-minutes"
+        config_dir.mkdir(parents=True)
+        # config.toml をディレクトリとして作る
+        (config_dir / "config.toml").mkdir()
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+
+        result = runner.invoke(app, ["config", "init", "--force"])
+
+        assert result.exit_code == 1
+        assert "通常ファイルではありません" in result.stdout
+
     def test_overwrites_when_force_specified(
         self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

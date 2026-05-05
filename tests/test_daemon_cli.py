@@ -31,8 +31,16 @@ def reset_daemon_logger() -> Iterator[None]:
     logger.setLevel(original_level)
 
 
+def _daemon_messages(caplog: pytest.LogCaptureFixture) -> list[str]:
+    """caplog から daemon ロガー由来のメッセージだけ抜き出す。
+
+    pytest-randomly で他テスト由来の record が混じっても判定が壊れないようにする。
+    """
+    return [r.getMessage() for r in caplog.records if r.name == daemon_cli._DAEMON_LOGGER_NAME]
+
+
 class TestLogDaemonStartup:
-    def test_emits_three_info_lines_in_order(
+    def test_emits_config_and_output_lines_in_order(
         self, caplog: pytest.LogCaptureFixture, tmp_path: Path
     ) -> None:
         logger = logging.getLogger(daemon_cli._DAEMON_LOGGER_NAME)
@@ -41,15 +49,32 @@ class TestLogDaemonStartup:
                 logger,
                 source_description="auto_discovered (/path/to/config.toml)",
                 output_base_dir=tmp_path / "out",
-                port=8765,
             )
 
-        messages = [r.getMessage() for r in caplog.records]
-        assert messages == [
+        assert _daemon_messages(caplog) == [
             "config source: auto_discovered (/path/to/config.toml)",
             f"output base_dir: {tmp_path / 'out'}",
-            "listening on http://127.0.0.1:8765",
         ]
+
+    def test_does_not_emit_listening_line(
+        self, caplog: pytest.LogCaptureFixture, tmp_path: Path
+    ) -> None:
+        """uvicorn が `Uvicorn running on http://...` を自分で出すので、
+        bind 前に重複/虚偽の listening 行を出さないことを担保する。"""
+        logger = logging.getLogger(daemon_cli._DAEMON_LOGGER_NAME)
+        with caplog.at_level(logging.INFO, logger=daemon_cli._DAEMON_LOGGER_NAME):
+            daemon_cli._log_daemon_startup(
+                logger,
+                source_description="defaults",
+                output_base_dir=tmp_path / "out",
+            )
+
+        # "listening on" / "127.0.0.1:" のいずれも daemon ロガー出力に含まれてはならない。
+        # （tmp_path のテスト名にたまたま "listening" が含まれるケースを避けるため、
+        # より具体的な部分文字列で判定する。）
+        for msg in _daemon_messages(caplog):
+            assert "listening on" not in msg
+            assert "127.0.0.1:" not in msg
 
 
 class TestEnsureDaemonLogger:
@@ -114,9 +139,6 @@ def test_appconfig_output_base_dir_used_in_log(
             logger,
             source_description="defaults",
             output_base_dir=output.base_dir,
-            port=9000,
         )
 
-    assert any(
-        f"output base_dir: {tmp_path / 'custom-out'}" == r.getMessage() for r in caplog.records
-    )
+    assert f"output base_dir: {tmp_path / 'custom-out'}" in _daemon_messages(caplog)

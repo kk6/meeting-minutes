@@ -47,12 +47,12 @@ timeout_seconds = 600
 think = false
 
 [output]
-# 未指定時は $XDG_DATA_HOME/meeting-minutes/output/ (~/.local/share/meeting-minutes/output/) に保存される。
-# 相対パスを書いた場合は本ファイルが置かれているディレクトリ基準で解決される。
-# 例: `meeting-minutes config init` で `~/.config/meeting-minutes/config.toml` にコピーすると
-# `~/.config/meeting-minutes/output/` になる。
-# 任意の場所に固定したい場合は絶対パスを指定する。
-base_dir = "output"
+# base_dir 未指定時は $XDG_DATA_HOME/meeting-minutes/output/ (~/.local/share/meeting-minutes/output/) に保存される。
+# `meeting-minutes config init` でコピーした直後はこの XDG 既定で動くよう、base_dir はコメントアウトしている。
+# 別の場所に出したい場合は以下を有効化する:
+# - 相対パス: 本設定ファイル自身のディレクトリ基準で解決される（cwd 非依存）。
+# - 絶対パス: 指定どおりの場所に固定される。
+# base_dir = "output"
 save_transcript = true
 save_audio = true
 

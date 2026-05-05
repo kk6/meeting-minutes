@@ -104,12 +104,15 @@ def _log_daemon_startup(
     *,
     source_description: str,
     output_base_dir: Path,
-    port: int,
 ) -> None:
-    """daemon 起動時の参照先 / 待ち受け先を一括で INFO 出力する。"""
+    """daemon 起動時の参照先（config / output）を INFO 出力する。
+
+    待ち受けアドレスは uvicorn 自身が `Uvicorn running on http://...` を出すので
+    ここでは出力しない（uvicorn より先に出すと、bind 失敗時にも
+    listening 表示が残って誤解を招くため）。
+    """
     logger.info("config source: %s", source_description)
     logger.info("output base_dir: %s", output_base_dir)
-    logger.info("listening on http://127.0.0.1:%d", port)
 
 
 @daemon_app.command("serve")
@@ -133,7 +136,6 @@ def daemon_serve(
         _ensure_daemon_logger(),
         source_description=describe_config_source(source),
         output_base_dir=app_config.output.base_dir,
-        port=port,
     )
 
     uvicorn.run(daemon_server_app, host="127.0.0.1", port=port)

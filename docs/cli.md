@@ -39,10 +39,12 @@ uv tool install .
 明示的に上書きする方法:
 
 - 設定ファイルで指定: TOML 中の相対パスは設定ファイル自身のディレクトリ基準で解決されます。
-  例えば雛形をそのまま `--config` で渡すと `base_dir = "output"` が雛形のあるパッケージ内
-  ディレクトリ (`src/meeting_minutes/config/templates/output/`) に解決されてしまうため、
-  通常は `meeting-minutes config init` で `~/.config/meeting-minutes/config.toml` に
-  コピーしてから編集してください。
+  同梱の雛形を `--config` でそのまま渡すと、出力もテンプレート自身のディレクトリ配下に
+  書き込まれます（リポジトリ内ならソースツリー、`uv tool install .` 後ならインストール
+  された wheel の site-packages 配下）。通常は `meeting-minutes config init` で
+  `~/.config/meeting-minutes/config.toml` にコピーしてから編集してください。
+  なお `config init` で書き出される雛形は `[output] base_dir` をコメントアウトしているため、
+  そのまま使えば `$XDG_DATA_HOME/meeting-minutes/output/` に出力されます。
 - 環境変数で指定: `MEETING_MINUTES_OUTPUT__BASE_DIR=path` を設定すると env 経路で
   上書きされ、相対パスは cwd 基準（=従来どおり）として扱われます。設定ファイル
   と異なり anchor されません。
@@ -222,12 +224,11 @@ uv run meeting-minutes daemon serve --config ~/.config/meeting-minutes/config.to
 
 `127.0.0.1` のみに bind するため、外部ホストから TCP 接続することはできません。ブラウザ経由の CSRF は Origin ヘッダー検証（localhost / 127.0.0.1 以外を 403 で拒否）と CORS ポリシーの組み合わせで防いでいます。停止するには `Ctrl+C` を押します。
 
-起動直後に以下の INFO ログを出します。どの設定で動いているかを最初の数行で把握できます。
+起動直後に以下の INFO ログを出します。どの設定で動いているかを最初の数行で把握できます（待ち受けアドレスは uvicorn 自身が出す `Uvicorn running on http://...` で確認できます）。
 
 ```text
 INFO: config source: auto_discovered (/Users/<you>/.config/meeting-minutes/config.toml)
 INFO: output base_dir: /Users/<you>/.local/share/meeting-minutes/output
-INFO: listening on http://127.0.0.1:8765
 ```
 
 `config source` は次のいずれかの形式で出ます。
