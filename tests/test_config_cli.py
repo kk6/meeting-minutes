@@ -103,21 +103,6 @@ class TestConfigInit:
         config = load_config(None)
         assert config.output.base_dir == tmp_path / "data" / "meeting-minutes" / "output"
 
-    def test_errors_when_target_path_is_directory(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """`config init --force` でも対象が dir なら write_text を呼ばずに弾く。"""
-        config_dir = tmp_path / "config" / "meeting-minutes"
-        config_dir.mkdir(parents=True)
-        # config.toml をディレクトリとして作る
-        (config_dir / "config.toml").mkdir()
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-
-        result = runner.invoke(app, ["config", "init", "--force"])
-
-        assert result.exit_code == 1
-        assert "通常ファイルではありません" in result.stdout
-
     def test_overwrites_when_force_specified(
         self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -175,26 +160,21 @@ class TestConfigShow:
         result = runner.invoke(app, ["config", "show", "--format", "yaml"])
         assert result.exit_code != 0
 
-    def test_errors_when_explicit_config_missing(self, runner: CliRunner, tmp_path: Path) -> None:
-        """`config edit` と整合させ、--config 明示指定で存在しないパスは
-        traceback ではなく CLI エラーで弾く。"""
-        result = runner.invoke(app, ["config", "show", "--config", str(tmp_path / "missing.toml")])
-
-        assert result.exit_code == 1
-        assert "見つかりません" in result.stdout
-
-    def test_errors_when_explicit_config_is_directory(
+    def test_errors_when_explicit_config_not_a_regular_file(
         self, runner: CliRunner, tmp_path: Path
     ) -> None:
-        """`--config` に dir を渡したときは「見つかりません」ではなく
-        「通常ファイルではない」と報告して原因切り分けを助ける。"""
-        explicit_dir = tmp_path / "config-dir"
-        explicit_dir.mkdir()
+        """`config edit` と整合させ、--config 明示指定で通常ファイルでないパスは
+        traceback ではなく CLI エラーで弾く（missing / dir / 壊れた symlink を一括処理）。"""
+        missing = tmp_path / "missing.toml"
+        result_missing = runner.invoke(app, ["config", "show", "--config", str(missing)])
+        assert result_missing.exit_code == 1
+        assert "見つかりません" in result_missing.stdout
 
-        result = runner.invoke(app, ["config", "show", "--config", str(explicit_dir)])
-
-        assert result.exit_code == 1
-        assert "通常ファイルではありません" in result.stdout
+        dir_path = tmp_path / "config-dir"
+        dir_path.mkdir()
+        result_dir = runner.invoke(app, ["config", "show", "--config", str(dir_path)])
+        assert result_dir.exit_code == 1
+        assert "見つかりません" in result_dir.stdout
 
 
 class TestConfigEdit:
@@ -273,37 +253,17 @@ class TestConfigEdit:
         assert result.exit_code == 0
         run_mock.assert_called_once_with(["fake-editor", str(explicit)], check=True)
 
-    def test_errors_when_explicit_config_missing(self, runner: CliRunner, tmp_path: Path) -> None:
-        result = runner.invoke(app, ["config", "edit", "--config", str(tmp_path / "missing.toml")])
-
-        assert result.exit_code == 1
-        assert "見つかりません" in result.stdout
-
-    def test_errors_when_explicit_config_is_directory(
+    def test_errors_when_explicit_config_not_a_regular_file(
         self, runner: CliRunner, tmp_path: Path
     ) -> None:
-        explicit_dir = tmp_path / "config-dir"
-        explicit_dir.mkdir()
+        """--config に missing / dir を渡したときは traceback ではなく CLI エラーで弾く。"""
+        missing = tmp_path / "missing.toml"
+        result_missing = runner.invoke(app, ["config", "edit", "--config", str(missing)])
+        assert result_missing.exit_code == 1
+        assert "見つかりません" in result_missing.stdout
 
-        result = runner.invoke(app, ["config", "edit", "--config", str(explicit_dir)])
-
-        assert result.exit_code == 1
-        assert "通常ファイルではありません" in result.stdout
-
-    def test_errors_when_default_path_is_directory(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """既定パスに dir があるときは `config init` を案内せず、実際の問題を出す。
-
-        `config init` も同じ理由で失敗するため、案内を出すと dead-end になる。
-        """
-        config_dir = tmp_path / "config" / "meeting-minutes"
-        config_dir.mkdir(parents=True)
-        (config_dir / "config.toml").mkdir()
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-
-        result = runner.invoke(app, ["config", "edit"])
-
-        assert result.exit_code == 1
-        assert "通常ファイルではありません" in result.stdout
-        assert "config init" not in result.stdout
+        dir_path = tmp_path / "config-dir"
+        dir_path.mkdir()
+        result_dir = runner.invoke(app, ["config", "edit", "--config", str(dir_path)])
+        assert result_dir.exit_code == 1
+        assert "見つかりません" in result_dir.stdout

@@ -74,18 +74,12 @@ def config_init(
 ) -> None:
     """XDG 既定パスに config.example.toml の内容で雛形を生成します。"""
     target = default_config_path()
-    if target.exists():
-        if not target.is_file():
-            # ディレクトリ等の通常ファイルでないエントリは --force でも書き込めないため、
-            # `write_text` が `IsADirectoryError` を出す前に明示的に弾く。
-            _console.print(f"[red]設定ファイルパスが通常ファイルではありません: {target}[/red]")
-            raise typer.Exit(code=1)
-        if not force:
-            _console.print(
-                f"[red]既に設定ファイルが存在します: {target}[/red]\n"
-                "[yellow]上書きする場合は --force を指定してください。[/yellow]"
-            )
-            raise typer.Exit(code=1)
+    if target.exists() and not force:
+        _console.print(
+            f"[red]既に設定ファイルが存在します: {target}[/red]\n"
+            "[yellow]上書きする場合は --force を指定してください。[/yellow]"
+        )
+        raise typer.Exit(code=1)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(read_template_config_text(), encoding="utf-8")
     _console.print(f"[green]Created:[/green] {target}")
@@ -139,16 +133,8 @@ def config_edit(
         return
     source = resolve_config_source(None)
     if source.kind == "defaults":
-        # 既定パスに dir 等の通常ファイルでないエントリがある場合、`config init` も
-        # 同じ理由で失敗するため案内せず、実際の問題をそのまま表示する。
-        default_path = default_config_path()
-        if default_path.exists():
-            _console.print(
-                f"[red]設定ファイルパスが通常ファイルではありません: {default_path}[/red]"
-            )
-            raise typer.Exit(code=1)
         _console.print(
-            f"[red]設定ファイルが存在しません: {default_path}[/red]\n"
+            f"[red]設定ファイルが存在しません: {default_config_path()}[/red]\n"
             "[yellow]先に `meeting-minutes config init` で作成してください。[/yellow]"
         )
         raise typer.Exit(code=1)
@@ -157,16 +143,15 @@ def config_edit(
 
 
 def _require_regular_file(path: Path) -> None:
-    """`--config` で渡されたパスが通常ファイルであることを担保する。
+    """`--config` で渡されたパスが通常ファイルでなければ CLI エラーで弾く。
 
-    存在しない場合と、存在するが dir / 壊れた symlink などの場合を区別して報告する
-    ことで、`--config <dir>` を間違って渡した際の原因切り分けを楽にする。
+    `is_file()` 一発で「存在しない」「dir」「壊れた symlink」を一括して判定し、
+    pydantic-settings が tomllib に dir を渡して曖昧なエラーになる事態を防ぐ。
     """
-    if not path.exists():
-        _console.print(f"[red]設定ファイルが見つかりません: {path}[/red]")
-        raise typer.Exit(code=1)
     if not path.is_file():
-        _console.print(f"[red]設定ファイルパスが通常ファイルではありません: {path}[/red]")
+        _console.print(
+            f"[red]設定ファイルが見つかりません（または通常ファイルではありません）: {path}[/red]"
+        )
         raise typer.Exit(code=1)
 
 
