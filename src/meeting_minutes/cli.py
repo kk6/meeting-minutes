@@ -9,6 +9,7 @@ from rich.table import Table
 
 from meeting_minutes.audio.devices import list_input_devices
 from meeting_minutes.config import apply_overrides, load_config
+from meeting_minutes.config.cli import config_app
 from meeting_minutes.core.checks import run_checks
 from meeting_minutes.daemon.cli import daemon_app
 from meeting_minutes.errors import MeetingMinutesError
@@ -16,6 +17,7 @@ from meeting_minutes.minutes.summarize import MinutesMode
 
 app = typer.Typer(no_args_is_help=True)
 app.add_typer(daemon_app, name="daemon")
+app.add_typer(config_app, name="config")
 console = Console()
 
 
