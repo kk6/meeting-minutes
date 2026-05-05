@@ -238,6 +238,8 @@ INFO: output base_dir: /Users/<you>/.local/share/meeting-minutes/output
 - `auto_discovered (<path>)` — XDG 既定パスを auto-discovery で拾った場合
 - `defaults (no config file at <would-be-path>)` — 設定ファイルが無く組み込み既定値だけで動いている場合
 
+Raycast から `daemon serve` の起動・停止を行う場合は [`scripts/raycast/README.md`](../scripts/raycast/README.md) を参照してください。
+
 #### API ドキュメント
 
 daemon 起動中は以下の URL で対話型ドキュメントを参照できます（`--port` を変更した場合は `8765` を置き換えてください）。

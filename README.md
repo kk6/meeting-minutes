@@ -96,7 +96,7 @@ uv run meeting-minutes daemon status
 uv run meeting-minutes daemon stop
 ```
 
-Raycast から daemon を制御したい場合は [scripts/raycast/README.md](./scripts/raycast/README.md) を参照してください。
+Raycast から daemon serve の起動・停止や録音セッションの制御を行いたい場合は [scripts/raycast/README.md](./scripts/raycast/README.md) を参照してください。
 
 設定例は [src/meeting_minutes/config/templates/config.example.toml](./src/meeting_minutes/config/templates/config.example.toml) を参照してください。`meeting-minutes config init` で雛形を XDG 既定パスに書き出せます。
 
