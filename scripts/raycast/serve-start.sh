@@ -24,8 +24,8 @@ if [ ! -d "${MEETING_MINUTES_REPO}" ]; then
     exit 1
 fi
 
-# 二重起動防止: ポートを使用中のプロセスを確認する
-existing_pid=$(lsof -ti tcp:"${PORT}" 2>/dev/null || true)
+# 二重起動防止: ポートで LISTEN しているプロセスのみを確認する
+existing_pid=$(lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null || true)
 if [ -n "${existing_pid}" ]; then
     echo "daemon はポート ${PORT} で既に起動しています (PID=${existing_pid})。" >&2
     echo "停止するには serve-stop.sh を実行してください。" >&2

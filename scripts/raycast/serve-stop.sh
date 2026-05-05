@@ -11,7 +11,7 @@ set -euo pipefail
 
 PORT="${MEETING_MINUTES_DAEMON_PORT:-8765}"
 
-server_pid=$(lsof -ti tcp:"${PORT}" 2>/dev/null || true)
+server_pid=$(lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null || true)
 if [ -z "${server_pid}" ]; then
     echo "daemon はポート ${PORT} で起動していません。"
     exit 0
