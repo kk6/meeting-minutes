@@ -43,7 +43,8 @@ if [ -z "${target_pid}" ]; then
     exit 0
 fi
 
-kill -TERM "${target_pid}"
+# target_pid 解決後、SIGTERM 送信前に daemon が自然終了している race を許容する
+kill -TERM "${target_pid}" 2>/dev/null || true
 
 # graceful shutdown を最大35秒待つ (LiveSession.shutdown timeout=30s + 余裕5s)
 for _ in $(seq 1 70); do

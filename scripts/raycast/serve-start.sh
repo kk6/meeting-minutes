@@ -12,7 +12,7 @@ set -euo pipefail
 PORT="${MEETING_MINUTES_DAEMON_PORT:-8765}"
 BASE="http://127.0.0.1:${PORT}"
 LOG_DIR="${HOME}/Library/Logs/meeting-minutes"
-LOG_FILE="${LOG_DIR}/daemon.log"
+LOG_FILE="${LOG_DIR}/daemon.${PORT}.log"
 PID_FILE="${LOG_DIR}/daemon.${PORT}.pid"
 
 if [ -z "${MEETING_MINUTES_REPO:-}" ]; then
