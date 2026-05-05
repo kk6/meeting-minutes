@@ -39,12 +39,13 @@ uv tool install .
 明示的に上書きする方法:
 
 - 設定ファイルで指定: TOML 中の相対パスは設定ファイル自身のディレクトリ基準で解決されます。
-  同梱の雛形を `--config` でそのまま渡すと、出力もテンプレート自身のディレクトリ配下に
-  書き込まれます（リポジトリ内ならソースツリー、`uv tool install .` 後ならインストール
-  された wheel の site-packages 配下）。通常は `meeting-minutes config init` で
-  `~/.config/meeting-minutes/config.toml` にコピーしてから編集してください。
-  なお `config init` で書き出される雛形は `[output] base_dir` をコメントアウトしているため、
-  そのまま使えば `$XDG_DATA_HOME/meeting-minutes/output/` に出力されます。
+  同梱の雛形は `[output] base_dir` を含むパス系フィールドがコメントアウトされているため、
+  そのまま `--config` で渡しても出力先は XDG 既定 (`$XDG_DATA_HOME/meeting-minutes/output/`)
+  のままです。雛形のコメントを外して相対値（例 `base_dir = "output"`）を書いた場合のみ、
+  その設定ファイル自身のディレクトリ配下に出力されます（リポジトリ内ならソースツリー、
+  `uv tool install .` 後ならインストールされた wheel の site-packages 配下）。
+  通常は `meeting-minutes config init` で `~/.config/meeting-minutes/config.toml` に
+  コピーしてから編集してください。
 - 環境変数で指定: `MEETING_MINUTES_OUTPUT__BASE_DIR=path` を設定すると env 経路で
   上書きされ、相対パスは cwd 基準（=従来どおり）として扱われます。設定ファイル
   と異なり anchor されません。

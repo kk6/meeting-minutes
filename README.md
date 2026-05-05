@@ -62,13 +62,13 @@ EOF
 ```
 
 利用可能な全フィールドのリファレンスは [src/meeting_minutes/config/templates/config.example.toml](./src/meeting_minutes/config/templates/config.example.toml) を参照してください。
-（雛形を丸ごとコピーすると `[output] base_dir = "output"` を引き継いで XDG 既定が無効化される点に注意。）
+（雛形では `[output] base_dir` を含むパス系フィールドはコメントアウト済みで、デフォルトでは `$XDG_DATA_HOME/meeting-minutes/output/` が使われます。出力先を変えたい場合は雛形のコメントを外してください。）
 
 ## Commands
 
 グローバルインストール済みなら `uv run` を外して `meeting-minutes ...` で直接呼べます。
 以下の `<base_dir>` は `output.base_dir` の解決結果です（XDG 既定なら `~/.local/share/meeting-minutes/output`）。
-TOML 中の相対パスは設定ファイル自身のディレクトリ基準で anchor されるため、同梱の雛形を `--config` で直接渡すと出力もそのテンプレート自身のディレクトリ配下に書き込まれます。通常は `meeting-minutes config init` で `~/.config/meeting-minutes/config.toml` にコピーしてから編集してください。
+TOML 中の相対パスは設定ファイル自身のディレクトリ基準で anchor されるため、雛形のコメントを外して `base_dir = "output"` のような相対値を有効化した場合は、その設定ファイルが置かれているディレクトリの直下に書き出されます（例: 雛形を `--config` で直接渡すとテンプレート自身のディレクトリ配下に出ます）。出力場所を固定したい場合は絶対パスを書くか、`meeting-minutes config init` で `~/.config/meeting-minutes/config.toml` にコピーしてから編集してください。
 
 ```bash
 uv run meeting-minutes check

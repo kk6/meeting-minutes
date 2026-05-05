@@ -3,9 +3,12 @@
 import logging
 from collections.abc import Iterator
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
+from typer.testing import CliRunner
 
+from meeting_minutes.cli import app
 from meeting_minutes.config import OutputConfig
 from meeting_minutes.daemon import cli as daemon_cli
 
@@ -142,3 +145,40 @@ def test_appconfig_output_base_dir_used_in_log(
         )
 
     assert f"output base_dir: {tmp_path / 'custom-out'}" in _daemon_messages(caplog)
+
+
+class TestDaemonServeCommand:
+    """`daemon serve` の起動経路を結合的に検証する。
+
+    `_log_daemon_startup` 単体テストだけでは「ログ呼び出しが消える」「uvicorn より
+    後にログを出してしまう」といった配線ミスを拾えないため、CLI 経由で uvicorn を
+    モックして起動順序と引数を検証する。
+    """
+
+    def test_logs_config_and_output_then_calls_uvicorn(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        config_dir = tmp_path / "config" / "meeting-minutes"
+        config_dir.mkdir(parents=True)
+        (config_dir / "config.toml").touch()
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+
+        # 起動ログは StreamHandler 経由で stderr に出る（_ensure_daemon_logger が
+        # propagate=False を立てるため caplog では拾えない）。Click 8.3+ の CliRunner は
+        # 既定で stderr を独立ストリームに退避するので result.stderr で取り出して検証する。
+        runner = CliRunner()
+        with patch("uvicorn.run") as uvicorn_run:
+            result = runner.invoke(app, ["daemon", "serve", "--port", "9001"])
+
+        assert result.exit_code == 0, result.output
+        # uvicorn.run が 127.0.0.1:9001 で呼ばれたか
+        uvicorn_run.assert_called_once()
+        kwargs = uvicorn_run.call_args.kwargs
+        assert kwargs["host"] == "127.0.0.1"
+        assert kwargs["port"] == 9001
+        # ログ 2 行を出してから uvicorn を起動している
+        assert "INFO: config source: auto_discovered (" in result.stderr
+        assert "INFO: output base_dir: " in result.stderr
+        # listening 行は CLI からは出さない（uvicorn 自身に委譲）
+        assert "listening on" not in result.stderr
