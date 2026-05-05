@@ -49,8 +49,8 @@ think = false
 [output]
 # 未指定時は $XDG_DATA_HOME/meeting-minutes/output/ (~/.local/share/meeting-minutes/output/) に保存される。
 # 相対パスを書いた場合は本ファイルが置かれているディレクトリ基準で解決される。
-# 例: 本ファイルをリポ直下から `--config config.example.toml` で渡すと `<repo>/output/`、
-# `~/.config/meeting-minutes/config.toml` にコピーすると `~/.config/meeting-minutes/output/` になる。
+# 例: `meeting-minutes config init` で `~/.config/meeting-minutes/config.toml` にコピーすると
+# `~/.config/meeting-minutes/output/` になる。
 # 任意の場所に固定したい場合は絶対パスを指定する。
 base_dir = "output"
 save_transcript = true

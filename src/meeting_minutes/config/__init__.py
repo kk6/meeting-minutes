@@ -1,11 +1,16 @@
 """アプリ全体の設定を pydantic モデルで定義し、TOML / 環境変数 / CLI 上書きから組み立てる。"""
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# config init で雛形として配るファイル。`src/meeting_minutes/config/templates/` 配下に置き、
+# `importlib.resources` でパッケージデータとして参照する（インストール後の wheel でも解決する）。
+_TEMPLATE_FILENAME = "config.example.toml"
 
 
 def _xdg_dir(env_var: str, fallback: Path) -> Path:
@@ -188,6 +193,48 @@ class AppConfig(BaseSettings):
     cleaning: CleaningConfig = Field(default_factory=CleaningConfig)
 
 
+ConfigSourceKind = Literal["explicit", "auto_discovered", "defaults"]
+
+
+@dataclass(frozen=True)
+class ConfigSource:
+    """`load_config` がどこから設定を読み込んだかを示すメタデータ。
+
+    `daemon serve` 起動時のログ出力や `meeting-minutes config path` コマンドが、
+    auto-discovery と明示指定と組み込み既定値のみの 3 パターンを区別するために使う。
+    """
+
+    kind: ConfigSourceKind
+    path: Path | None
+
+
+def resolve_config_source(path: Path | None) -> ConfigSource:
+    """`load_config(path)` が参照する設定ソースを返す。読み込みは行わない。
+
+    - `path` が指定された場合: `kind="explicit"`、`path` をそのまま返す（存在チェックなし）。
+    - `path` が None で XDG 既定パスに config.toml が「ファイルとして」ある場合:
+      `kind="auto_discovered"`。同名のディレクトリは auto-discovery 対象から除外する。
+    - 上記いずれでもない場合: `kind="defaults"`、`path=None`。
+    """
+    if path is not None:
+        return ConfigSource(kind="explicit", path=path)
+    candidate = default_config_path()
+    if candidate.is_file():
+        return ConfigSource(kind="auto_discovered", path=candidate)
+    return ConfigSource(kind="defaults", path=None)
+
+
+def read_template_config_text() -> str:
+    """`config init` で雛形として書き出す `config.example.toml` の内容を返す。
+
+    `importlib.resources` 経由で取得することで、リポジトリ内実行・editable install・
+    `uv tool install .` 後の wheel いずれの形態でも解決される。
+    """
+    from importlib.resources import files
+
+    return files(__package__).joinpath("templates", _TEMPLATE_FILENAME).read_text(encoding="utf-8")
+
+
 def load_config(path: Path | None) -> AppConfig:
     """TOML から `AppConfig` を構築する。
 
@@ -200,7 +247,8 @@ def load_config(path: Path | None) -> AppConfig:
     """
     if path is None:
         candidate = default_config_path()
-        if candidate.exists():
+        # ディレクトリ等の同名エントリで auto-discovery がヒットしないよう is_file() を使う。
+        if candidate.is_file():
             path = candidate
         else:
             return AppConfig()

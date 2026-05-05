@@ -42,7 +42,16 @@ meeting-minutes --help
 | 設定ファイル | `~/.config/meeting-minutes/config.toml` | `$XDG_CONFIG_HOME` または `--config` |
 | 出力先 (`output.base_dir`) | `~/.local/share/meeting-minutes/output/` | `$XDG_DATA_HOME` または config の `[output] base_dir` |
 
-グローバルインストール時は、上書きしたいフィールドだけを書いた最小構成を置きます。
+グローバルインストール時は、雛形を生成してから必要なフィールドだけ残すのが楽です。
+
+```bash
+meeting-minutes config init   # ~/.config/meeting-minutes/config.toml を生成
+meeting-minutes config edit   # $EDITOR で開く（未設定時は macOS の open(1) が起動）
+meeting-minutes config path   # auto-discovery で参照されるパスを表示
+meeting-minutes config show   # 解決後の AppConfig を TOML/JSON で表示
+```
+
+最小構成を直接書く場合:
 
 ```bash
 mkdir -p ~/.config/meeting-minutes
@@ -52,14 +61,14 @@ device = "BlackHole 2ch"
 EOF
 ```
 
-利用可能な全フィールドのリファレンスは [config.example.toml](./config.example.toml) を参照してください。
-（`config.example.toml` を丸ごとコピーすると `[output] base_dir = "output"`
-を引き継いで XDG 既定が無効化される点に注意。）
+利用可能な全フィールドのリファレンスは [src/meeting_minutes/config/templates/config.example.toml](./src/meeting_minutes/config/templates/config.example.toml) を参照してください。
+（雛形を丸ごとコピーすると `[output] base_dir = "output"` を引き継いで XDG 既定が無効化される点に注意。）
 
 ## Commands
 
 グローバルインストール済みなら `uv run` を外して `meeting-minutes ...` で直接呼べます。
-以下の `<base_dir>` は `output.base_dir` の解決結果です（XDG 既定なら `~/.local/share/meeting-minutes/output`、`config.example.toml` を `--config` で渡したリポジトリ内ワークフローなら `<repo>/output`）。
+以下の `<base_dir>` は `output.base_dir` の解決結果です（XDG 既定なら `~/.local/share/meeting-minutes/output`）。
+TOML 中の相対パスは設定ファイル自身のディレクトリ基準で anchor されるため、雛形を `--config` で直接渡すとパッケージ内 `src/meeting_minutes/config/templates/output/` に書き出されます。リポジトリ直下に出したい場合は `meeting-minutes config show > config.toml` などで一度コピーしてから `--config ./config.toml` を渡してください。
 
 ```bash
 uv run meeting-minutes check
@@ -89,7 +98,7 @@ uv run meeting-minutes daemon stop
 
 Raycast から daemon を制御したい場合は [scripts/raycast/README.md](./scripts/raycast/README.md) を参照してください。
 
-設定例は [config.example.toml](./config.example.toml) を参照してください。
+設定例は [src/meeting_minutes/config/templates/config.example.toml](./src/meeting_minutes/config/templates/config.example.toml) を参照してください。`meeting-minutes config init` で雛形を XDG 既定パスに書き出せます。
 
 詳しいCLI説明は [docs/cli.md](./docs/cli.md) を参照してください。
 
