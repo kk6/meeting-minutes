@@ -9,11 +9,18 @@
 
 set -euo pipefail
 
-PORT="${MEETING_MINUTES_DAEMON_PORT:-8765}"
+PID_FILE="${HOME}/Library/Logs/meeting-minutes/daemon.pid"
 
-server_pid=$(lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null || true)
-if [ -z "${server_pid}" ]; then
-    echo "daemon はポート ${PORT} で起動していません。"
+if [ ! -f "${PID_FILE}" ]; then
+    echo "daemon は起動していません (PID ファイルが見つかりません)。"
+    exit 0
+fi
+
+server_pid=$(cat "${PID_FILE}")
+
+if ! kill -0 "${server_pid}" 2>/dev/null; then
+    echo "daemon は既に停止しています (PID=${server_pid})。"
+    rm -f "${PID_FILE}"
     exit 0
 fi
 
@@ -22,6 +29,7 @@ kill -TERM "${server_pid}"
 # graceful shutdown を最大35秒待つ (LiveSession.shutdown timeout=30s + 余裕5s)
 for _ in $(seq 1 70); do
     if ! kill -0 "${server_pid}" 2>/dev/null; then
+        rm -f "${PID_FILE}"
         echo "daemon stopped | pid=${server_pid}"
         exit 0
     fi
@@ -30,5 +38,6 @@ done
 
 # SIGTERM で落ちなかった場合は強制終了
 kill -KILL "${server_pid}" 2>/dev/null || true
+rm -f "${PID_FILE}"
 echo "graceful shutdown が間に合わなかったため強制終了しました (SIGKILL)。" >&2
 echo "daemon stopped | pid=${server_pid}"

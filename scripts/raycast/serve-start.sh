@@ -11,7 +11,9 @@ set -euo pipefail
 
 PORT="${MEETING_MINUTES_DAEMON_PORT:-8765}"
 BASE="http://127.0.0.1:${PORT}"
-LOG_FILE="${HOME}/Library/Logs/meeting-minutes/daemon.log"
+LOG_DIR="${HOME}/Library/Logs/meeting-minutes"
+LOG_FILE="${LOG_DIR}/daemon.log"
+PID_FILE="${LOG_DIR}/daemon.pid"
 
 if [ -z "${MEETING_MINUTES_REPO:-}" ]; then
     echo "MEETING_MINUTES_REPO が設定されていません。" >&2
@@ -24,22 +26,29 @@ if [ ! -d "${MEETING_MINUTES_REPO}" ]; then
     exit 1
 fi
 
-# 二重起動防止: ポートで LISTEN しているプロセスのみを確認する
-existing_pid=$(lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null || true)
-if [ -n "${existing_pid}" ]; then
-    echo "daemon はポート ${PORT} で既に起動しています (PID=${existing_pid})。" >&2
-    echo "停止するには serve-stop.sh を実行してください。" >&2
-    exit 1
+# 二重起動防止: PID ファイルで自分が起動した daemon のみを確認する
+if [ -f "${PID_FILE}" ]; then
+    existing_pid=$(cat "${PID_FILE}")
+    if kill -0 "${existing_pid}" 2>/dev/null; then
+        echo "daemon は既に起動しています (PID=${existing_pid})。" >&2
+        echo "停止するには serve-stop.sh を実行してください。" >&2
+        exit 1
+    else
+        # プロセスが存在しない古い PID ファイルを削除して続行
+        rm -f "${PID_FILE}"
+    fi
 fi
 
-mkdir -p "${HOME}/Library/Logs/meeting-minutes"
+mkdir -p "${LOG_DIR}"
 
 nohup uv run --directory "${MEETING_MINUTES_REPO}" meeting-minutes daemon serve --port "${PORT}" >> "${LOG_FILE}" 2>&1 &
 server_pid=$!
+echo "${server_pid}" > "${PID_FILE}"
 
 # uvicorn の起動（モデルロードを含む）を最大60秒待つ
 for i in $(seq 1 60); do
     if ! kill -0 "${server_pid}" 2>/dev/null; then
+        rm -f "${PID_FILE}"
         echo "daemon が起動直後に終了しました。ログを確認してください: ${LOG_FILE}" >&2
         exit 1
     fi
