@@ -9,55 +9,43 @@
 
 set -euo pipefail
 
-PORT="${MEETING_MINUTES_DAEMON_PORT:-8765}"
-PID_FILE="${HOME}/Library/Logs/meeting-minutes/daemon.${PORT}.pid"
+PID_FILE="${HOME}/Library/Logs/meeting-minutes/daemon.pid"
 
-# 停止対象 PID を決定する: PID ファイル優先、なければポートで LISTEN している
-# meeting-minutes daemon serve を採用する
-target_pid=""
-if [ -f "${PID_FILE}" ]; then
-    pid_from_file=$(cat "${PID_FILE}")
-    if kill -0 "${pid_from_file}" 2>/dev/null && \
-       ps -p "${pid_from_file}" -o args= 2>/dev/null | grep -q "meeting-minutes daemon serve"; then
-        target_pid="${pid_from_file}"
-    else
-        # プロセスが存在しない、または PID が別プロセスに再利用されている
-        rm -f "${PID_FILE}"
-    fi
-fi
-
-if [ -z "${target_pid}" ]; then
-    listen_pid=$(lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null || true)
-    if [ -n "${listen_pid}" ] && \
-       ps -p "${listen_pid}" -o args= 2>/dev/null | grep -q "meeting-minutes daemon serve"; then
-        target_pid="${listen_pid}"
-    elif [ -n "${listen_pid}" ]; then
-        echo "ポート ${PORT} は meeting-minutes daemon serve 以外のプロセス (PID=${listen_pid}) が使用しています。" >&2
-        echo "このスクリプトでは停止しません。" >&2
-        exit 1
-    fi
-fi
-
-if [ -z "${target_pid}" ]; then
-    echo "daemon は起動していません (port=${PORT})。"
+if [ ! -f "${PID_FILE}" ]; then
+    echo "daemon は起動していません (PID ファイルが見つかりません)。"
     exit 0
 fi
 
-# target_pid 解決後、SIGTERM 送信前に daemon が自然終了している race を許容する
-kill -TERM "${target_pid}" 2>/dev/null || true
+server_pid=$(cat "${PID_FILE}")
+
+if ! kill -0 "${server_pid}" 2>/dev/null; then
+    echo "daemon は既に停止しています (PID=${server_pid})。"
+    rm -f "${PID_FILE}"
+    exit 0
+fi
+
+# PID が meeting-minutes daemon serve のプロセスであることを確認してから停止する
+if ! ps -p "${server_pid}" -o args= 2>/dev/null | grep -q "meeting-minutes daemon serve"; then
+    echo "PID ${server_pid} は meeting-minutes daemon serve ではありません。PID ファイルが古い可能性があります。" >&2
+    echo "${PID_FILE} を手動で削除してから serve-start.sh を再実行してください。" >&2
+    exit 1
+fi
+
+# server_pid 解決後、SIGTERM 送信前に daemon が自然終了している race を許容する
+kill -TERM "${server_pid}" 2>/dev/null || true
 
 # graceful shutdown を最大35秒待つ (LiveSession.shutdown timeout=30s + 余裕5s)
 for _ in $(seq 1 70); do
-    if ! kill -0 "${target_pid}" 2>/dev/null; then
+    if ! kill -0 "${server_pid}" 2>/dev/null; then
         rm -f "${PID_FILE}"
-        echo "daemon stopped | pid=${target_pid}"
+        echo "daemon stopped | pid=${server_pid}"
         exit 0
     fi
     sleep 0.5
 done
 
 # SIGTERM で落ちなかった場合は強制終了
-kill -KILL "${target_pid}" 2>/dev/null || true
+kill -KILL "${server_pid}" 2>/dev/null || true
 rm -f "${PID_FILE}"
 echo "graceful shutdown が間に合わなかったため強制終了しました (SIGKILL)。" >&2
-echo "daemon stopped | pid=${target_pid}"
+echo "daemon stopped | pid=${server_pid}"

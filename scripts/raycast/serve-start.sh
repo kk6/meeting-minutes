@@ -12,8 +12,8 @@ set -euo pipefail
 PORT="${MEETING_MINUTES_DAEMON_PORT:-8765}"
 BASE="http://127.0.0.1:${PORT}"
 LOG_DIR="${HOME}/Library/Logs/meeting-minutes"
-LOG_FILE="${LOG_DIR}/daemon.${PORT}.log"
-PID_FILE="${LOG_DIR}/daemon.${PORT}.pid"
+LOG_FILE="${LOG_DIR}/daemon.log"
+PID_FILE="${LOG_DIR}/daemon.pid"
 
 if [ -z "${MEETING_MINUTES_REPO:-}" ]; then
     echo "MEETING_MINUTES_REPO が設定されていません。" >&2
@@ -26,31 +26,18 @@ if [ ! -d "${MEETING_MINUTES_REPO}" ]; then
     exit 1
 fi
 
-# 二重起動防止: PID ファイル（ポート別）を確認する
+# 二重起動防止: PID ファイルを確認する
 if [ -f "${PID_FILE}" ]; then
     existing_pid=$(cat "${PID_FILE}")
     if kill -0 "${existing_pid}" 2>/dev/null && \
        ps -p "${existing_pid}" -o args= 2>/dev/null | grep -q "meeting-minutes daemon serve"; then
-        echo "daemon は既に起動しています (PID=${existing_pid}, port=${PORT})。" >&2
+        echo "daemon は既に起動しています (PID=${existing_pid})。" >&2
         echo "停止するには serve-stop.sh を実行してください。" >&2
         exit 1
     else
         # プロセスが存在しない、または PID が別プロセスに再利用されている
         rm -f "${PID_FILE}"
     fi
-fi
-
-# ポート使用確認: 手動起動の daemon serve / 無関係プロセスを区別する
-listen_pid=$(lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null || true)
-if [ -n "${listen_pid}" ]; then
-    if ps -p "${listen_pid}" -o args= 2>/dev/null | grep -q "meeting-minutes daemon serve"; then
-        echo "ポート ${PORT} で meeting-minutes daemon serve が既に動いています (PID=${listen_pid}, 手動起動)。" >&2
-        echo "停止するには serve-stop.sh を実行してください。" >&2
-    else
-        echo "ポート ${PORT} は別プロセス (PID=${listen_pid}) が使用中です。" >&2
-        echo "MEETING_MINUTES_DAEMON_PORT で別ポートを指定するか、占有しているプロセスを停止してください。" >&2
-    fi
-    exit 1
 fi
 
 mkdir -p "${LOG_DIR}"
