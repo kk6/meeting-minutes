@@ -13,9 +13,11 @@ PORT="${MEETING_MINUTES_DAEMON_PORT:-8765}"
 PID_FILE="${HOME}/Library/Logs/meeting-minutes/daemon.pid"
 
 if [ ! -f "${PID_FILE}" ]; then
-    # PID ファイルなし: ポートを確認して手動起動の daemon を案内する
-    if lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t >/dev/null 2>&1; then
-        echo "PID ファイルが見つかりません。serve-start.sh 以外で起動した daemon serve がポート ${PORT} で動いています。" >&2
+    # PID ファイルなし: ポートで手動起動の daemon serve がいるか確認して案内する
+    listen_pid=$(lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null || true)
+    if [ -n "${listen_pid}" ] && \
+       ps -p "${listen_pid}" -o args= 2>/dev/null | grep -q "meeting-minutes daemon serve"; then
+        echo "serve-start.sh 以外で起動した daemon serve がポート ${PORT} で動いています。" >&2
         echo "ターミナルで Ctrl+C を押して停止してください。" >&2
         exit 1
     fi
@@ -31,9 +33,9 @@ if ! kill -0 "${server_pid}" 2>/dev/null; then
     exit 0
 fi
 
-# PID が meeting-minutes のプロセスであることを確認してから停止する
-if ! ps -p "${server_pid}" -o args= 2>/dev/null | grep -q "meeting-minutes"; then
-    echo "PID ${server_pid} は meeting-minutes daemon ではありません。PID ファイルが古い可能性があります。" >&2
+# PID が meeting-minutes daemon serve のプロセスであることを確認してから停止する
+if ! ps -p "${server_pid}" -o args= 2>/dev/null | grep -q "meeting-minutes daemon serve"; then
+    echo "PID ${server_pid} は meeting-minutes daemon serve ではありません。PID ファイルが古い可能性があります。" >&2
     echo "${PID_FILE} を手動で削除してから serve-start.sh を再実行してください。" >&2
     exit 1
 fi

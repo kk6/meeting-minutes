@@ -30,20 +30,22 @@ fi
 if [ -f "${PID_FILE}" ]; then
     existing_pid=$(cat "${PID_FILE}")
     if kill -0 "${existing_pid}" 2>/dev/null && \
-       ps -p "${existing_pid}" -o args= 2>/dev/null | grep -q "meeting-minutes"; then
+       ps -p "${existing_pid}" -o args= 2>/dev/null | grep -q "meeting-minutes daemon serve"; then
         echo "daemon は既に起動しています (PID=${existing_pid})。" >&2
         echo "停止するには serve-stop.sh を実行してください。" >&2
         exit 1
     else
-        # プロセスが存在しない、または別プロセスが PID を再利用している古いファイルを削除
+        # プロセスが存在しない、または PID が別プロセスに再利用されている
         rm -f "${PID_FILE}"
     fi
 fi
 
-# PID ファイルがない場合も、ポートで手動起動の daemon がないか確認する
-if lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo "ポート ${PORT} は既に使用中です。" >&2
-    echo "手動で起動した daemon serve がある場合はターミナルで Ctrl+C で停止してください。" >&2
+# PID ファイルがない場合も、ポートで手動起動の daemon serve がないか確認する
+listen_pid=$(lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null || true)
+if [ -n "${listen_pid}" ] && \
+   ps -p "${listen_pid}" -o args= 2>/dev/null | grep -q "meeting-minutes daemon serve"; then
+    echo "ポート ${PORT} で meeting-minutes daemon serve が既に動いています（手動起動）。" >&2
+    echo "停止するには serve-stop.sh を実行するか、ターミナルで Ctrl+C を押してください。" >&2
     exit 1
 fi
 
@@ -53,7 +55,7 @@ nohup uv run --directory "${MEETING_MINUTES_REPO}" meeting-minutes daemon serve 
 server_pid=$!
 echo "${server_pid}" > "${PID_FILE}"
 
-# uvicorn の起動（モデルロードを含む）を最大60秒待つ
+# uvicorn の起動が完了するまで最大60秒待つ
 for i in $(seq 1 60); do
     if ! kill -0 "${server_pid}" 2>/dev/null; then
         rm -f "${PID_FILE}"
