@@ -183,6 +183,19 @@ class TestConfigShow:
         assert result.exit_code == 1
         assert "見つかりません" in result.stdout
 
+    def test_errors_when_explicit_config_is_directory(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """`--config` に dir を渡したときは「見つかりません」ではなく
+        「通常ファイルではない」と報告して原因切り分けを助ける。"""
+        explicit_dir = tmp_path / "config-dir"
+        explicit_dir.mkdir()
+
+        result = runner.invoke(app, ["config", "show", "--config", str(explicit_dir)])
+
+        assert result.exit_code == 1
+        assert "通常ファイルではありません" in result.stdout
+
 
 class TestConfigEdit:
     def test_invokes_editor_on_resolved_config_path(
@@ -265,6 +278,17 @@ class TestConfigEdit:
 
         assert result.exit_code == 1
         assert "見つかりません" in result.stdout
+
+    def test_errors_when_explicit_config_is_directory(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        explicit_dir = tmp_path / "config-dir"
+        explicit_dir.mkdir()
+
+        result = runner.invoke(app, ["config", "edit", "--config", str(explicit_dir)])
+
+        assert result.exit_code == 1
+        assert "通常ファイルではありません" in result.stdout
 
     def test_errors_when_default_path_is_directory(
         self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

@@ -108,9 +108,8 @@ def config_show(
     # `config edit` と整合させ、`--config <missing>` で raw FileNotFoundError traceback が
     # 出ないよう、明示指定時のみ事前チェックする。auto-discovery 時は load_config 側で
     # 既定値にフォールバックするためチェック不要。
-    if config is not None and not config.is_file():
-        _console.print(f"[red]設定ファイルが見つかりません: {config}[/red]")
-        raise typer.Exit(code=1)
+    if config is not None:
+        _require_regular_file(config)
     app_config = load_config(config)
     if output_format == "json":
         data = _appconfig_to_dict(app_config, drop_none=False)
@@ -135,9 +134,7 @@ def config_edit(
     `--config` 明示時はそのファイルが存在すれば直接開きます。
     """
     if config is not None:
-        if not config.is_file():
-            _console.print(f"[red]設定ファイルが見つかりません: {config}[/red]")
-            raise typer.Exit(code=1)
+        _require_regular_file(config)
         _open_in_editor(config)
         return
     source = resolve_config_source(None)
@@ -157,6 +154,20 @@ def config_edit(
         raise typer.Exit(code=1)
     assert source.path is not None
     _open_in_editor(source.path)
+
+
+def _require_regular_file(path: Path) -> None:
+    """`--config` で渡されたパスが通常ファイルであることを担保する。
+
+    存在しない場合と、存在するが dir / 壊れた symlink などの場合を区別して報告する
+    ことで、`--config <dir>` を間違って渡した際の原因切り分けを楽にする。
+    """
+    if not path.exists():
+        _console.print(f"[red]設定ファイルが見つかりません: {path}[/red]")
+        raise typer.Exit(code=1)
+    if not path.is_file():
+        _console.print(f"[red]設定ファイルパスが通常ファイルではありません: {path}[/red]")
+        raise typer.Exit(code=1)
 
 
 def _open_in_editor(path: Path) -> None:
