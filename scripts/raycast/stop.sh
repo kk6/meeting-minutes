@@ -22,7 +22,7 @@ case "${status}" in
     0) ;;
     7)
         echo "daemon に接続できません (${BASE})。" >&2
-        echo "別ターミナルで 'uv run meeting-minutes daemon serve --port ${PORT}' を起動してください。" >&2
+        echo "Raycast の Meeting Minutes Daemon Start、または別ターミナルで 'meeting-minutes daemon serve --port ${PORT}' を起動してください。" >&2
         exit 1
         ;;
     28)

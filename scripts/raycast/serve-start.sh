@@ -15,14 +15,11 @@ LOG_DIR="${HOME}/Library/Logs/meeting-minutes"
 LOG_FILE="${LOG_DIR}/daemon.log"
 PID_FILE="${LOG_DIR}/daemon.pid"
 
-if [ -z "${MEETING_MINUTES_REPO:-}" ]; then
-    echo "MEETING_MINUTES_REPO が設定されていません。" >&2
-    echo "Raycast の Configure Script > Environment Variables で MEETING_MINUTES_REPO にリポジトリの絶対パスを設定してください。" >&2
-    exit 1
-fi
+export PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
 
-if [ ! -d "${MEETING_MINUTES_REPO}" ]; then
-    echo "リポジトリが見つかりません: ${MEETING_MINUTES_REPO}" >&2
+if ! command -v meeting-minutes >/dev/null 2>&1; then
+    echo "meeting-minutes コマンドが見つかりません。" >&2
+    echo "'uv tool install .' を実行し、Raycast が参照する PATH にインストール先を含めてください。" >&2
     exit 1
 fi
 
@@ -42,7 +39,7 @@ fi
 
 mkdir -p "${LOG_DIR}"
 
-nohup uv run --directory "${MEETING_MINUTES_REPO}" meeting-minutes daemon serve --port "${PORT}" >> "${LOG_FILE}" 2>&1 &
+nohup meeting-minutes daemon serve --port "${PORT}" >> "${LOG_FILE}" 2>&1 &
 server_pid=$!
 echo "${server_pid}" > "${PID_FILE}"
 
