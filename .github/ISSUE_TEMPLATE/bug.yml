@@ -1,0 +1,66 @@
+name: Bug
+description: Track a concrete defect in the author's local meeting-minutes workflow.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository is public, but `meeting-minutes` is a personal local macOS tool.
+        Issues are for tracking defects in the author's own workflow, not for general support requests.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What failed, and what were you trying to do?
+      placeholder: "Example: `meeting-minutes live` stopped after ..."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Minimal local steps, commands, and config details needed to reproduce.
+      placeholder: |
+        1. Run `...`
+        2. Use config `...`
+        3. Observe `...`
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen for the author's local workflow?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: Include the relevant traceback, CLI output, or log excerpt.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Local Environment
+      description: Include only details that matter for this failure.
+      value: |
+        - macOS:
+        - Python:
+        - Audio device:
+        - Ollama model:
+        - Command:
+    validations:
+      required: false
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Project Boundaries
+      options:
+        - label: This is not a request for general support or a feature for other users.
+          required: true
+        - label: The issue can be reproduced without live audio hardware or a running Ollama server, or those dependencies are explicitly called out above.
+          required: false
