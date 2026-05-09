@@ -88,7 +88,7 @@ def _ensure_model_available(model: str) -> str:
 
     from faster_whisper.transcribe import download_model  # type: ignore[import-untyped]
 
-    model_repos = cast(dict[str, str], download_model.__globals__["_MODELS"])
+    model_repos = _model_repos(download_model.__globals__.get("_MODELS"))
     repo_id = model if "/" in model else model_repos.get(model)
     if repo_id is None:
         raise ValueError(
@@ -105,3 +105,11 @@ def _ensure_model_available(model: str) -> str:
             "vocabulary.*",
         ],
     )
+
+
+def _model_repos(value: object) -> dict[str, str]:
+    if not isinstance(value, dict) or not all(
+        isinstance(key, str) and isinstance(repo_id, str) for key, repo_id in value.items()
+    ):
+        raise ValueError("faster-whisper model mapping is unavailable")
+    return cast(dict[str, str], value)

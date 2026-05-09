@@ -110,3 +110,8 @@ def test_ensure_model_available_downloads_named_model(monkeypatch: pytest.Monkey
     assert calls[0][0] == "Systran/faster-whisper-small"
     allow_patterns = cast(list[str], calls[0][1]["allow_patterns"])
     assert "model.bin" in allow_patterns
+
+
+def test_model_repos_rejects_missing_private_mapping() -> None:
+    with pytest.raises(ValueError, match="model mapping is unavailable"):
+        transcribe._model_repos(None)
