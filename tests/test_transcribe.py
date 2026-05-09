@@ -97,6 +97,18 @@ def test_ensure_model_available_returns_existing_local_path(tmp_path: Path) -> N
     assert transcribe._ensure_model_available(str(model_dir)) == str(model_dir)
 
 
+def test_ensure_model_available_expands_existing_home_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    model_dir = home_dir / "local-model"
+    model_dir.mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home_dir))
+
+    assert transcribe._ensure_model_available("~/local-model") == str(model_dir)
+
+
 def test_ensure_model_available_downloads_named_model(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, dict[str, object]]] = []
 
@@ -110,6 +122,21 @@ def test_ensure_model_available_downloads_named_model(monkeypatch: pytest.Monkey
     assert calls[0][0] == "Systran/faster-whisper-small"
     allow_patterns = cast(list[str], calls[0][1]["allow_patterns"])
     assert "model.bin" in allow_patterns
+
+
+def test_ensure_model_available_leaves_unknown_path_like_model_to_faster_whisper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def fake_snapshot_download(repo_id: str, **_kwargs: object) -> str:
+        calls.append(repo_id)
+        return "/cache/model"
+
+    monkeypatch.setattr(transcribe, "snapshot_download", fake_snapshot_download)
+
+    assert transcribe._ensure_model_available("models/whisper-small") == "models/whisper-small"
+    assert calls == []
 
 
 def test_model_repos_rejects_missing_private_mapping() -> None:

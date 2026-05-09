@@ -83,17 +83,16 @@ class WhisperTranscriber:
 
 def _ensure_model_available(model: str) -> str:
     """Download named Hugging Face models with progress before faster-whisper loads them."""
-    if Path(model).exists():
-        return model
+    model_path = Path(model).expanduser()
+    if model_path.exists():
+        return str(model_path)
 
     from faster_whisper.transcribe import download_model  # type: ignore[import-untyped]
 
     model_repos = _model_repos(download_model.__globals__.get("_MODELS"))
-    repo_id = model if "/" in model else model_repos.get(model)
+    repo_id = model_repos.get(model)
     if repo_id is None:
-        raise ValueError(
-            f"Invalid model size '{model}', expected one of: {', '.join(model_repos.keys())}"
-        )
+        return model
 
     return snapshot_download(
         repo_id,
