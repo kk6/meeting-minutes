@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Fork this project
+    url: https://github.com/kk6/meeting-minutes/fork
+    about: This project is a personal local tool. External support and feature requests are not handled through Issues.

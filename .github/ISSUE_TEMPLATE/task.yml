@@ -1,0 +1,51 @@
+name: Task
+description: Track a planned change for the author's local workflow.
+title: "[task] "
+labels: ["task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for work the author actually wants in their local setup.
+        This project intentionally avoids general-purpose product requirements.
+  - type: textarea
+    id: intent
+    attributes:
+      label: Intent
+      description: What should improve in the author's actual workflow?
+      placeholder: "Example: make Raycast stop/start smoother when ..."
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What files, commands, or behavior are likely involved?
+      placeholder: |
+        - CLI command:
+        - Config:
+        - Output/session artifact:
+        - Docs/tests:
+    validations:
+      required: false
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-Goals
+      description: What should remain out of scope?
+      value: |
+        - General support for other users
+        - Multi-user or remote-host operation
+        - Cloud transcription or summarization APIs
+    validations:
+      required: false
+  - type: textarea
+    id: checks
+    attributes:
+      label: Verification
+      description: How should this be checked locally?
+      value: |
+        - [ ] `just check`
+        - [ ] Manual CLI smoke check:
+    validations:
+      required: false
