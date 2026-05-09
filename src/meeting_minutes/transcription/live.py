@@ -269,6 +269,7 @@ def run_live(
         init_transcript(transcript_path, config, input_device, started_at)
 
     console.print(f"[green]Recording:[/green] {input_device.name} [{input_device.index}]")
+    console.print(f"[green]Whisper model:[/green] {config.transcription.whisper_model}")
     console.print(f"[green]Output:[/green] {session_dir}")
     console.print("Press Ctrl+C to stop.")
 

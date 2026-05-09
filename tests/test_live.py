@@ -120,6 +120,16 @@ def test_run_live_writes_audio_and_transcript(
     assert audio_path.stat().st_size > 44
 
 
+def test_run_live_prints_whisper_model(
+    tmp_path: Path,
+    live_dependencies: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    run_live(live_config(tmp_path))
+
+    assert "Whisper model: small" in capsys.readouterr().out
+
+
 def test_run_live_applies_preprocessing_before_transcription(
     tmp_path: Path,
     input_device: InputDevice,

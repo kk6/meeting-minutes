@@ -1,8 +1,11 @@
 """faster-whisper を用いた音声書き起こしのラッパー。"""
 
 from dataclasses import dataclass
+from pathlib import Path
+from typing import cast
 
 import numpy as np
+from huggingface_hub import snapshot_download
 
 from meeting_minutes.config import TranscriptionConfig
 from meeting_minutes.errors import TranscriptionError
@@ -29,8 +32,9 @@ class WhisperTranscriber:
         try:
             from faster_whisper import WhisperModel
 
+            model_path = _ensure_model_available(config.whisper_model)
             self._model = WhisperModel(
-                config.whisper_model,
+                model_path,
                 device=config.device,
                 compute_type=config.compute_type,
             )
@@ -75,3 +79,29 @@ class WhisperTranscriber:
         except (RuntimeError, ValueError) as exc:
             raise TranscriptionError(f"文字起こしに失敗しました: {exc}") from exc
         return results
+
+
+def _ensure_model_available(model: str) -> str:
+    """Download named Hugging Face models with progress before faster-whisper loads them."""
+    if Path(model).exists():
+        return model
+
+    from faster_whisper.transcribe import download_model  # type: ignore[import-untyped]
+
+    model_repos = cast(dict[str, str], download_model.__globals__["_MODELS"])
+    repo_id = model if "/" in model else model_repos.get(model)
+    if repo_id is None:
+        raise ValueError(
+            f"Invalid model size '{model}', expected one of: {', '.join(model_repos.keys())}"
+        )
+
+    return snapshot_download(
+        repo_id,
+        allow_patterns=[
+            "config.json",
+            "preprocessor_config.json",
+            "model.bin",
+            "tokenizer.json",
+            "vocabulary.*",
+        ],
+    )
