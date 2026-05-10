@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import cast
 
 import numpy as np
-from huggingface_hub import snapshot_download
 
 from meeting_minutes.config import TranscriptionConfig
 from meeting_minutes.errors import TranscriptionError
@@ -89,12 +88,23 @@ def _ensure_model_available(model: str) -> str:
 
     from faster_whisper.transcribe import download_model  # type: ignore[import-untyped]
 
-    model_repos = _model_repos(download_model.__globals__.get("_MODELS"))
+    try:
+        model_repos = _model_repos(download_model.__globals__.get("_MODELS"))
+    except ValueError:
+        return model
+
     repo_id = model_repos.get(model)
     if repo_id is None:
         return model
 
-    return snapshot_download(
+    try:
+        return _download_model_snapshot(repo_id)
+    except Exception as exc:
+        raise ValueError(f"Whisperモデルをダウンロードできませんでした: {exc}") from exc
+
+
+def _download_model_snapshot(repo_id: str) -> str:
+    return _snapshot_download(
         repo_id,
         allow_patterns=[
             "config.json",
@@ -104,6 +114,12 @@ def _ensure_model_available(model: str) -> str:
             "vocabulary.*",
         ],
     )
+
+
+def _snapshot_download(repo_id: str, *, allow_patterns: list[str]) -> str:
+    from huggingface_hub import snapshot_download
+
+    return snapshot_download(repo_id, allow_patterns=allow_patterns)
 
 
 def _model_repos(value: object) -> dict[str, str]:

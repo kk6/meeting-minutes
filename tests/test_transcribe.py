@@ -110,16 +110,29 @@ def test_ensure_model_available_expands_existing_home_path(
 
 
 def test_ensure_model_available_downloads_named_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fake_download_model_snapshot(repo_id: str) -> str:
+        calls.append(repo_id)
+        return "/cache/small"
+
+    monkeypatch.setattr(transcribe, "_model_repos", lambda _value: {"small": "example/small"})
+    monkeypatch.setattr(transcribe, "_download_model_snapshot", fake_download_model_snapshot)
+
+    assert transcribe._ensure_model_available("small") == "/cache/small"
+    assert calls == ["example/small"]
+
+
+def test_download_model_snapshot_limits_downloaded_files(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, dict[str, object]]] = []
 
     def fake_snapshot_download(repo_id: str, **kwargs: object) -> str:
         calls.append((repo_id, kwargs))
         return "/cache/small"
 
-    monkeypatch.setattr(transcribe, "snapshot_download", fake_snapshot_download)
+    monkeypatch.setattr(transcribe, "_snapshot_download", fake_snapshot_download)
 
-    assert transcribe._ensure_model_available("small") == "/cache/small"
-    assert calls[0][0] == "Systran/faster-whisper-small"
+    assert transcribe._download_model_snapshot("example/small") == "/cache/small"
     allow_patterns = cast(list[str], calls[0][1]["allow_patterns"])
     assert "model.bin" in allow_patterns
 
@@ -133,10 +146,42 @@ def test_ensure_model_available_leaves_unknown_path_like_model_to_faster_whisper
         calls.append(repo_id)
         return "/cache/model"
 
-    monkeypatch.setattr(transcribe, "snapshot_download", fake_snapshot_download)
+    monkeypatch.setattr(transcribe, "_download_model_snapshot", fake_snapshot_download)
 
     assert transcribe._ensure_model_available("models/whisper-small") == "models/whisper-small"
     assert calls == []
+
+
+def test_ensure_model_available_falls_back_when_model_mapping_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def fake_download_model_snapshot(repo_id: str) -> str:
+        calls.append(repo_id)
+        return "/cache/model"
+
+    def fake_model_repos(_value: object) -> dict[str, str]:
+        raise ValueError("missing mapping")
+
+    monkeypatch.setattr(transcribe, "_model_repos", fake_model_repos)
+    monkeypatch.setattr(transcribe, "_download_model_snapshot", fake_download_model_snapshot)
+
+    assert transcribe._ensure_model_available("small") == "small"
+    assert calls == []
+
+
+def test_ensure_model_available_wraps_download_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_download_model_snapshot(_repo_id: str) -> str:
+        raise RuntimeError("network unavailable")
+
+    monkeypatch.setattr(transcribe, "_model_repos", lambda _value: {"small": "example/small"})
+    monkeypatch.setattr(transcribe, "_download_model_snapshot", fake_download_model_snapshot)
+
+    with pytest.raises(ValueError, match="ダウンロードできませんでした"):
+        transcribe._ensure_model_available("small")
 
 
 def test_model_repos_rejects_missing_private_mapping() -> None:
