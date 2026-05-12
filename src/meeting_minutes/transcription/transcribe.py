@@ -125,10 +125,7 @@ def _snapshot_download(repo_id: str, *, allow_patterns: list[str]) -> str:
 
 def _is_path_like_model(model: str) -> bool:
     return (
-        model.startswith(("~", "."))
-        or Path(model).is_absolute()
-        or "/" in model
-        or "\\" in model
+        model.startswith(("~", ".")) or Path(model).is_absolute() or "/" in model or "\\" in model
     )
 
 
