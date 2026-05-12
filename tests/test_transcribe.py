@@ -109,6 +109,25 @@ def test_ensure_model_available_expands_existing_home_path(
     assert transcribe._ensure_model_available("~/local-model") == str(model_dir)
 
 
+def test_ensure_model_available_prefers_known_model_over_same_named_local_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "small").mkdir()
+    calls: list[str] = []
+
+    def fake_download_model_snapshot(repo_id: str) -> str:
+        calls.append(repo_id)
+        return "/cache/small"
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(transcribe, "_model_repos", lambda _value: {"small": "example/small"})
+    monkeypatch.setattr(transcribe, "_download_model_snapshot", fake_download_model_snapshot)
+
+    assert transcribe._ensure_model_available("small") == "/cache/small"
+    assert calls == ["example/small"]
+
+
 def test_ensure_model_available_downloads_named_model(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
 

@@ -82,18 +82,19 @@ class WhisperTranscriber:
 
 def _ensure_model_available(model: str) -> str:
     """Download named Hugging Face models with progress before faster-whisper loads them."""
-    model_path = Path(model).expanduser()
-    if model_path.exists():
-        return str(model_path)
-
     from faster_whisper.transcribe import download_model  # type: ignore[import-untyped]
 
     try:
         model_repos = _model_repos(download_model.__globals__.get("_MODELS"))
     except ValueError:
-        return model
+        model_repos = {}
 
     repo_id = model_repos.get(model)
+    if repo_id is None and _is_path_like_model(model):
+        model_path = Path(model).expanduser()
+        if model_path.exists():
+            return str(model_path)
+
     if repo_id is None:
         return model
 
@@ -120,6 +121,15 @@ def _snapshot_download(repo_id: str, *, allow_patterns: list[str]) -> str:
     from huggingface_hub import snapshot_download
 
     return snapshot_download(repo_id, allow_patterns=allow_patterns)
+
+
+def _is_path_like_model(model: str) -> bool:
+    return (
+        model.startswith(("~", "."))
+        or Path(model).is_absolute()
+        or "/" in model
+        or "\\" in model
+    )
 
 
 def _model_repos(value: object) -> dict[str, str]:
