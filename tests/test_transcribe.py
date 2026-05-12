@@ -1,6 +1,11 @@
+from pathlib import Path
+from typing import cast
+
 import numpy as np
+import pytest
 
 from meeting_minutes.config import TranscriptionConfig
+from meeting_minutes.transcription import transcribe
 from meeting_minutes.transcription.transcribe import WhisperTranscriber
 
 
@@ -83,3 +88,121 @@ def test_transcribe_segments_accepts_per_call_initial_prompt() -> None:
     )
 
     assert fake_model.last_kwargs["initial_prompt"] == "参加者: 鈴木"
+
+
+def test_ensure_model_available_returns_existing_local_path(tmp_path: Path) -> None:
+    model_dir = tmp_path / "local-model"
+    model_dir.mkdir()
+
+    assert transcribe._ensure_model_available(str(model_dir)) == str(model_dir)
+
+
+def test_ensure_model_available_expands_existing_home_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    model_dir = home_dir / "local-model"
+    model_dir.mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home_dir))
+
+    assert transcribe._ensure_model_available("~/local-model") == str(model_dir)
+
+
+def test_ensure_model_available_prefers_known_model_over_same_named_local_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "small").mkdir()
+    calls: list[str] = []
+
+    def fake_download_model_snapshot(repo_id: str) -> str:
+        calls.append(repo_id)
+        return "/cache/small"
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(transcribe, "_model_repos", lambda _value: {"small": "example/small"})
+    monkeypatch.setattr(transcribe, "_download_model_snapshot", fake_download_model_snapshot)
+
+    assert transcribe._ensure_model_available("small") == "/cache/small"
+    assert calls == ["example/small"]
+
+
+def test_ensure_model_available_downloads_named_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fake_download_model_snapshot(repo_id: str) -> str:
+        calls.append(repo_id)
+        return "/cache/small"
+
+    monkeypatch.setattr(transcribe, "_model_repos", lambda _value: {"small": "example/small"})
+    monkeypatch.setattr(transcribe, "_download_model_snapshot", fake_download_model_snapshot)
+
+    assert transcribe._ensure_model_available("small") == "/cache/small"
+    assert calls == ["example/small"]
+
+
+def test_download_model_snapshot_limits_downloaded_files(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    def fake_snapshot_download(repo_id: str, **kwargs: object) -> str:
+        calls.append((repo_id, kwargs))
+        return "/cache/small"
+
+    monkeypatch.setattr(transcribe, "_snapshot_download", fake_snapshot_download)
+
+    assert transcribe._download_model_snapshot("example/small") == "/cache/small"
+    allow_patterns = cast(list[str], calls[0][1]["allow_patterns"])
+    assert "model.bin" in allow_patterns
+
+
+def test_ensure_model_available_leaves_unknown_path_like_model_to_faster_whisper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def fake_snapshot_download(repo_id: str, **_kwargs: object) -> str:
+        calls.append(repo_id)
+        return "/cache/model"
+
+    monkeypatch.setattr(transcribe, "_download_model_snapshot", fake_snapshot_download)
+
+    assert transcribe._ensure_model_available("models/whisper-small") == "models/whisper-small"
+    assert calls == []
+
+
+def test_ensure_model_available_falls_back_when_model_mapping_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def fake_download_model_snapshot(repo_id: str) -> str:
+        calls.append(repo_id)
+        return "/cache/model"
+
+    def fake_model_repos(_value: object) -> dict[str, str]:
+        raise ValueError("missing mapping")
+
+    monkeypatch.setattr(transcribe, "_model_repos", fake_model_repos)
+    monkeypatch.setattr(transcribe, "_download_model_snapshot", fake_download_model_snapshot)
+
+    assert transcribe._ensure_model_available("small") == "small"
+    assert calls == []
+
+
+def test_ensure_model_available_wraps_download_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_download_model_snapshot(_repo_id: str) -> str:
+        raise RuntimeError("network unavailable")
+
+    monkeypatch.setattr(transcribe, "_model_repos", lambda _value: {"small": "example/small"})
+    monkeypatch.setattr(transcribe, "_download_model_snapshot", fake_download_model_snapshot)
+
+    with pytest.raises(ValueError, match="ダウンロードできませんでした"):
+        transcribe._ensure_model_available("small")
+
+
+def test_model_repos_rejects_missing_private_mapping() -> None:
+    with pytest.raises(ValueError, match="model mapping is unavailable"):
+        transcribe._model_repos(None)
