@@ -78,3 +78,7 @@ max_summary_chars = 1000
 chunk_size = 4000
 # clean コマンドのデフォルト出力ファイル名。
 output_filename = "transcript_clean.md"
+
+[alerts]
+# live/daemon 起動後、この秒数まで一度も文字起こしが採用されなければ macOS 通知を出す。0 で無効。
+initial_no_transcript_seconds = 60

@@ -1,6 +1,7 @@
 """ライブ録音セッションのオーケストレーション（録音・書き起こし・ドラフト生成）。"""
 
 import logging
+import subprocess
 import threading
 import wave
 from collections.abc import Callable
@@ -123,6 +124,55 @@ class AudioOverflowRecorder:
         if self.events == 1 or self.events % 10 == 0:
             logger.warning(message)
             console.print(f"[yellow]{message} 続行します。[/yellow]")
+
+
+def send_desktop_notification(*, title: str, message: str) -> None:
+    """macOS の通知センターへデスクトップ通知を送る。"""
+
+    def quote(value: str) -> str:
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+    try:
+        subprocess.run(
+            [
+                "osascript",
+                "-e",
+                f"display notification {quote(message)} with title {quote(title)}",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        logger.warning("Failed to send desktop notification: %s", exc)
+
+
+@dataclass
+class InitialTranscriptAlert:
+    """起動後しばらく採用済み文字起こしがない場合に一度だけ通知する。"""
+
+    threshold_seconds: int
+    notified: bool = False
+    transcript_seen: bool = False
+
+    def mark_transcript_seen(self) -> None:
+        self.transcript_seen = True
+
+    def maybe_notify(self, elapsed_seconds: int) -> None:
+        if self.threshold_seconds <= 0 or self.notified or self.transcript_seen:
+            return
+        if elapsed_seconds < self.threshold_seconds:
+            return
+        message = (
+            f"{elapsed_seconds}秒経過しましたが、まだ音声が文字起こしされていません。"
+            "入力デバイスやBlackHoleへの出力先を確認してください。"
+        )
+        console.print(f"[yellow]{message}[/yellow]")
+        send_desktop_notification(
+            title="meeting-minutes",
+            message=message,
+        )
+        self.notified = True
 
 
 @dataclass
@@ -308,6 +358,9 @@ def run_live(
     )
     audio_preprocessor = AudioPreprocessor(config.preprocessing)
     overflow_recorder = AudioOverflowRecorder(errors)
+    initial_transcript_alert = InitialTranscriptAlert(
+        threshold_seconds=config.alerts.initial_no_transcript_seconds,
+    )
     draft_scheduler = DraftScheduler.create(
         draft_interval_minutes=draft_interval_minutes,
         transcript_path=transcript_path,
@@ -339,11 +392,15 @@ def run_live(
         ):
             elapsed_seconds += config.audio.chunk_seconds
             audio_recording.write(chunk, errors)
-            transcription_runner.process(audio_preprocessor.process(chunk))
+            if transcription_runner.process(audio_preprocessor.process(chunk)):
+                initial_transcript_alert.mark_transcript_seen()
+            else:
+                initial_transcript_alert.maybe_notify(elapsed_seconds)
             if stop_event is not None and stop_event.is_set():
                 break
             draft_scheduler.maybe_generate(elapsed_seconds)
         if transcription_runner.flush():
+            initial_transcript_alert.mark_transcript_seen()
             draft_scheduler.maybe_generate(elapsed_seconds)
     except KeyboardInterrupt:
         if transcription_runner.flush():

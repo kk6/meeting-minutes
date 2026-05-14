@@ -7,7 +7,14 @@ import pytest
 
 from meeting_minutes.audio.devices import InputDevice
 from meeting_minutes.audio.stream import AudioOverflowError
-from meeting_minutes.config import AppConfig, AudioConfig, OutputConfig, PreprocessingConfig
+from meeting_minutes.config import (
+    AlertConfig,
+    AppConfig,
+    AudioConfig,
+    OutputConfig,
+    PreprocessingConfig,
+    VadConfig,
+)
 from meeting_minutes.transcription.live import DraftScheduler, _segment_elapsed_range, run_live
 from meeting_minutes.transcription.transcribe import TranscriptionSegment
 
@@ -304,6 +311,79 @@ def test_run_live_stops_when_stop_event_is_set(
     run_live(live_config(tmp_path), stop_event=stop_event)
 
     assert chunks_seen == 1
+
+
+def test_run_live_notifies_when_initial_transcript_is_missing(
+    tmp_path: Path,
+    input_device: InputDevice,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notifications: list[dict[str, str]] = []
+
+    def fake_audio_chunks(**_kwargs: object) -> Iterator[np.ndarray]:
+        yield np.full(16000, 0.1, dtype=np.float32)
+        yield np.full(16000, 0.1, dtype=np.float32)
+
+    class SilentTranscriber:
+        def __init__(self, _config: object, *, initial_prompt: object = None) -> None:
+            pass
+
+        def transcribe_segments(
+            self,
+            _chunk: np.ndarray,
+            *,
+            initial_prompt: str | None = None,
+        ) -> list[TranscriptionSegment]:
+            return []
+
+    monkeypatch.setattr(
+        "meeting_minutes.transcription.live.resolve_input_device", lambda *_args: input_device
+    )
+    monkeypatch.setattr("meeting_minutes.transcription.live.audio_chunks", fake_audio_chunks)
+    monkeypatch.setattr("meeting_minutes.transcription.live.WhisperTranscriber", SilentTranscriber)
+    monkeypatch.setattr(
+        "meeting_minutes.transcription.live.send_desktop_notification",
+        lambda **kwargs: notifications.append(kwargs),
+    )
+
+    config = AppConfig(
+        audio=AudioConfig(chunk_seconds=1),
+        output=OutputConfig(base_dir=tmp_path),
+        alerts=AlertConfig(initial_no_transcript_seconds=2),
+    )
+
+    run_live(config)
+
+    assert notifications == [
+        {
+            "title": "meeting-minutes",
+            "message": "2秒経過しましたが、まだ音声が文字起こしされていません。"
+            "入力デバイスやBlackHoleへの出力先を確認してください。",
+        }
+    ]
+
+
+def test_run_live_does_not_notify_after_transcript_is_written(
+    tmp_path: Path,
+    live_dependencies: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notifications: list[dict[str, str]] = []
+    monkeypatch.setattr(
+        "meeting_minutes.transcription.live.send_desktop_notification",
+        lambda **kwargs: notifications.append(kwargs),
+    )
+
+    config = live_config(tmp_path).model_copy(
+        update={
+            "alerts": AlertConfig(initial_no_transcript_seconds=1),
+            "vad": VadConfig(enabled=False),
+        }
+    )
+
+    run_live(config)
+
+    assert notifications == []
 
 
 def test_run_live_aborts_on_audio_overflow_by_default(

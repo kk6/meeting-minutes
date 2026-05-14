@@ -128,6 +128,13 @@ def live(
     draft_interval_minutes: Annotated[
         int, typer.Option("--draft-interval-minutes", help="0なら自動ドラフト生成なし")
     ] = 0,
+    initial_no_transcript_alert_seconds: Annotated[
+        int | None,
+        typer.Option(
+            "--initial-no-transcript-alert-seconds",
+            help="起動後この秒数まで文字起こしが出なければ通知する。0で無効化",
+        ),
+    ] = None,
 ) -> None:
     """リアルタイム文字起こしを開始します。"""
     from meeting_minutes.transcription.live import run_live
@@ -151,6 +158,7 @@ def live(
                 continue_on_overflow,
                 abort_on_overflow,
             ),
+            "alerts.initial_no_transcript_seconds": initial_no_transcript_alert_seconds,
         },
     )
     try:
