@@ -173,6 +173,12 @@ class CleaningConfig(BaseModel):
     output_filename: str = "transcript_clean.md"
 
 
+class AlertConfig(BaseModel):
+    """ライブ録音中の異常に気づくためのローカル通知設定。"""
+
+    initial_no_transcript_seconds: int = Field(default=60, ge=0)
+
+
 class AppConfig(BaseSettings):
     """全セクションを束ねるアプリ設定。
 
@@ -191,6 +197,7 @@ class AppConfig(BaseSettings):
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     vocabulary: VocabularyConfig = Field(default_factory=VocabularyConfig)
     cleaning: CleaningConfig = Field(default_factory=CleaningConfig)
+    alerts: AlertConfig = Field(default_factory=AlertConfig)
 
 
 ConfigSourceKind = Literal["explicit", "auto_discovered", "defaults"]

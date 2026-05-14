@@ -148,6 +148,7 @@ uv run meeting-minutes live --device-index 1
 | `--continue-on-overflow` | `false` | 音声取り逃がし時も `metadata.json` に記録して続行 |
 | `--abort-on-overflow` | 設定ファイルまたは `true` | 音声取り逃がし時に停止 |
 | `--draft-interval-minutes` | `0` | 指定分ごとにドラフト生成。`0`なら無効 |
+| `--initial-no-transcript-alert-seconds` | 設定ファイルまたは `60` | 起動後この秒数まで一度も文字起こしが採用されなければmacOS通知。`0`なら無効 |
 
 出力先の例（`<base_dir>` は `output.base_dir` の解決結果。XDG 既定なら `~/.local/share/meeting-minutes/output`）:
 
@@ -167,6 +168,8 @@ uv run meeting-minutes live --device-index 1
 VADは既定で有効です。無音が続いたところで発話終了とみなし、短すぎる音声はノイズとして捨てます。長すぎる発話は `vad.max_speech_seconds` で強制分割します。固定秒数チャンクの従来動作に戻したい場合は `--no-vad` または設定ファイルの `vad.enabled = false` を使います。
 
 音声入力の処理が追いつかず一部ブロックを取り逃がした場合、既定では停止します。長時間会議で少量の欠落を許容して継続したい場合は `--continue-on-overflow` または設定ファイルの `audio.abort_on_overflow = false` を使います。継続時も取り逃がしは `metadata.json` の `errors` に記録されます。
+
+起動後しばらく一度も文字起こしが採用されない場合は、macOS通知とコンソール警告を一度だけ出します。既定は60秒です。Raycastやバックグラウンドウィンドウから起動したときに、BlackHoleへの出力先ミスなどへ気づくための通知です。秒数は `--initial-no-transcript-alert-seconds` または設定ファイルの `alerts.initial_no_transcript_seconds` で変更できます。
 
 ### BlackHole 64chを使う場合
 
